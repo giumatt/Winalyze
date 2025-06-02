@@ -18,7 +18,7 @@ jobs:
             
             - name: Install Dependencies
               run: |
-                pip install -r backend/requirements.txt
+                pip install -r Backend/requirements.txt
             
             - name: Run validation
-              run: python backend/test/train_validate.py
+              run: python Backend/test/train_validate.py
