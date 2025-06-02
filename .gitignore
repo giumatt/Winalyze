@@ -20,3 +20,5 @@ Backend/src/train_*.py
 Backend/src/Old versions
 Backend/terraform/.terraform
 Backend/terraform/.terraform.lock.hcl
+.github/workflows/promote-production.yml
+.github/workflows/train-and-validate.yml
