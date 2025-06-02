@@ -1,0 +1,22 @@
+Backend/data/cleaned
+Backend/data/models
+Backend/data/scalers
+.DS_Store
+data/raw/exported-red_predicted.csv
+data/raw/exported-white_predicted.csv
+data/scalers/
+.idea/
+.venv/
+__pycache__/
+WineQualityPredictorUI.jsx
+Backend/src/.env
+Backend/data/raw/*_uploaded.csv
+Backend/data/raw/exported*.csv
+Backend/start.sh
+Backend/src/predict.py
+Backend/src/preprocess*.py
+Backend/src/send_prediction_request.py
+Backend/src/train_*.py
+Backend/src/Old versions
+Backend/terraform/.terraform
+Backend/terraform/.terraform.lock.hcl
