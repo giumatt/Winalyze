@@ -18,7 +18,7 @@ jobs:
 
             - name: Install dependencies
               run: |
-                pip install -r backend/requirements.txt
+                pip install -r Backend/requirements.txt
             
             - name: Upload production model
-              run: python backend/promote/save_model.py
+              run: python Backend/promote/save_model.py
