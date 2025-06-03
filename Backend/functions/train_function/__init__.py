@@ -12,7 +12,7 @@ def main(inputblob: func.InputStream):
     try:
         logging.info(f"Trigger received: {inputblob.name}")
 
-        connection_string = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
+        connection_string = os.getenv("AzureWebJobsStorage")
         blob_service = BlobServiceClient.from_connection_string(connection_string)
 
         filename = inputblob.name
