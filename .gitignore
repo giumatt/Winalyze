@@ -22,3 +22,5 @@ Backend/terraform/.terraform
 Backend/terraform/.terraform.lock.hcl
 .github/workflows/deploy-infrastructure.yml
 .github/workflows/promote-production.yml
+backend/functions/.funcignore
+.vscode/
