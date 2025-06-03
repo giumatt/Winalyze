@@ -9,7 +9,7 @@ data/scalers/
 .venv/
 __pycache__/
 WineQualityPredictorUI.jsx
-Backend/src/.env
+Backend/functions/.env
 Backend/data/raw/*_uploaded.csv
 Backend/data/raw/exported*.csv
 Backend/start.sh
