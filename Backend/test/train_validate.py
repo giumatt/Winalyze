@@ -13,7 +13,7 @@ blob_service = BlobServiceClient.from_connection_string(connection_string)
 
 def validate_model(wine_type):
     try:
-        print(f"\n📦 Validating model: {wine_type.upper()}")
+        print(f"\n Validating model: {wine_type.upper()}")
 
         # Scarica modello e scaler
         model_blob = blob_service.get_blob_client(container="models", blob=f"model_{wine_type}.pkl")
@@ -39,7 +39,7 @@ def validate_model(wine_type):
         acc = accuracy_score(y_test, y_pred)
 
         print(f"✅ {wine_type.upper()} model accuracy: {acc:.4f}")
-        assert acc >= 0.7, f"❌ Accuracy for {wine_type} model too low: {acc:.4f}"
+        assert acc >= 0.7, f"Accuracy for {wine_type} model too low: {acc:.4f}"
         return True
 
     except Exception as e:
@@ -52,7 +52,7 @@ for t in ["red", "white"]:
     result = validate_model(t)
     results.append(result)
     if result is False:
-        raise AssertionError(f"❌ Validation failed for {t} model.")
+        raise AssertionError(f"Validation failed for {t} model.")
 
 if any(r is True for r in results):
     print("\n🎉 All present models validated successfully!")
