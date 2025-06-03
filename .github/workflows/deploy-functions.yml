@@ -23,4 +23,4 @@ jobs:
 
       - name: Publish Functions to Azure
         run: func azure functionapp publish winalyzefunc --python
-        working-directory: backend/functions
+        working-directory: Backend/functions
