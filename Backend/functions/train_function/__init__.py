@@ -9,9 +9,10 @@ from shared.preprocessing_utils import preprocess
 from shared.model_utils import train_and_save_model
 
 def main(inputblob: func.InputStream):
+    logging.info(f"Function triggered for blob: {inputblob.name}")
+    logging.info(f"Blob size: {inputblob.length} bytes")
+    
     try:
-        logging.info(f"Trigger received: {inputblob.name}")
-
         connection_string = os.getenv("AzureWebJobsStorage")
         blob_service = BlobServiceClient.from_connection_string(connection_string)
 
@@ -24,11 +25,15 @@ def main(inputblob: func.InputStream):
             logging.warning("Wine type not recognized")
             return
         
+        logging.info(f"Wine type detected: {wine_type}")
+        logging.info(f"Starting preprocessing for {wine_type} wine")
+        
         csv_bytes = inputblob.read()
         df = pd.read_csv(io.BytesIO(csv_bytes))
 
         df_cleaned, scaler = preprocess(df)
         cleaned_path = f"cleaned/cleaned_{wine_type}.csv"
+        logging.info(f"Preprocessing completed. Saving cleaned data to {cleaned_path}")
         blob_service.get_blob_client(container="cleaned", blob=cleaned_path)\
                     .upload_blob(io.BytesIO(df_cleaned.to_csv(index=False).encode()), overwrite=True)
         
@@ -41,4 +46,6 @@ def main(inputblob: func.InputStream):
         
         logging.info("Training and save completed")
     except Exception as e:
-        logging.error(f"Error while training model: {e}")
+        logging.error(f"Error in training function: {str(e)}")
+        logging.exception("Full stack trace:")
+        raise
