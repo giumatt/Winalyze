@@ -1,4 +1,4 @@
-'''import azure.functions as func
+import azure.functions as func
 import logging
 import os
 import pandas as pd
@@ -41,10 +41,4 @@ def main(inputblob: func.InputStream):
         
         logging.info("Training and save completed")
     except Exception as e:
-        logging.error(f"Error while training model: {e}")'''
-
-import azure.functions as func
-import logging
-
-def main(inputblob: func.InputStream):
-    logging.info(f"🚀 TRIGGER SCATTATO: {inputblob.name}")
+        logging.error(f"Error while training model: {e}")
