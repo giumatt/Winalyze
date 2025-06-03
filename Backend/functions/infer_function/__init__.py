@@ -1,33 +1,66 @@
 import azure.functions as func
+import logging
 from azure.storage.blob import BlobServiceClient 
 from shared.model_utils import load_model
 import pandas as pd
 import json
-from dotenv import load_dotenv
 import os
 
-load_dotenv()
-
 def main(req: func.HttpRequest) -> func.HttpResponse:
+    logging.info('Richiesta di inferenza ricevuta')
+    
     try:
-        data = req.get_json()
-        wine_type = data.pop("type", "").lower()
+        # Ottieni e valida i dati di input
+        try:
+            data = req.get_json()
+            wine_type = data.pop("type", "").lower()
+        except ValueError:
+            return func.HttpResponse(
+                "Invalid JSON in request body",
+                status_code=400
+            )
 
+        # Valida il tipo di vino
         if wine_type not in ['red', 'white']:
-            return func.HttpResponse("Please specify 'type' as 'red' or 'white'", status_code=400)
+            return func.HttpResponse(
+                "Please specify 'type' as 'red' or 'white'",
+                status_code=400
+            )
         
-        connection_string = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
-        blob_service_client = BlobServiceClient.from_connection_string(connection_string)
-        blob_client = blob_service_client.get_blob_client(container="models", blob=f"model_{wine_type}.pkl")
-
-        blob_bytes = blob_client.download_blob().readall()
-        model, scaler = load_model(blob_bytes)
-
-        df = pd.DataFrame([data])
-        X_scaled = scaler.transform(df)
-
-        prediction = model.predict(X_scaled)
+        logging.info(f'Richiesta predizione per vino {wine_type}')
         
-        return func.HttpResponse(json.dumps({"prediction": int(prediction[0])}), mimetype="application/json")
+        # Carica il modello
+        try:
+            model, scaler = load_model(wine_type)
+            logging.info('Modello caricato con successo')
+        except Exception as e:
+            logging.error(f'Errore nel caricamento del modello: {str(e)}')
+            return func.HttpResponse(
+                f"Model loading error: {str(e)}",
+                status_code=500
+            )
+
+        # Prepara i dati e fai la predizione
+        try:
+            df = pd.DataFrame([data])
+            X_scaled = scaler.transform(df)
+            prediction = model.predict(X_scaled)
+            logging.info('Predizione completata con successo')
+            
+            return func.HttpResponse(
+                json.dumps({"prediction": int(prediction[0])}),
+                mimetype="application/json"
+            )
+        except Exception as e:
+            logging.error(f'Errore durante la predizione: {str(e)}')
+            return func.HttpResponse(
+                f"Prediction error: {str(e)}",
+                status_code=500
+            )
+            
     except Exception as e:
-        return func.HttpResponse(f"Error: {str(e)}", status_code=500)
+        logging.error(f'Errore generale: {str(e)}')
+        return func.HttpResponse(
+            f"Internal server error: {str(e)}",
+            status_code=500
+        )
