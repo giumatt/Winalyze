@@ -27,6 +27,10 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         blob_name = f"uploaded_{wine_type}.csv"
         blob_client = blob_service_client.get_blob_client(container="raw", blob=blob_name)
 
+        if blob_client.exists():
+            logging.warning(f"File {blob_name} already exists. I'll delete it")
+            blob_client.delete_blob()
+
         blob_client.upload_blob(file.stream.read(), overwrite=True, metadata={"type": wine_type})
 
         return func.HttpResponse(f"File uploaded as {blob_name} and training triggered", status_code=200)
