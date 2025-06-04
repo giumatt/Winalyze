@@ -25,7 +25,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-        working-directory: Progetto SDCC/Backend/functions
+        working-directory: Backend/functions
 
       - name: Azure Login
         uses: azure/login@v1
@@ -34,4 +34,4 @@ jobs:
 
       - name: Publish Azure Functions
         run: func azure functionapp publish winalyzefunc --python --no-build --force
-        working-directory: Progetto SDCC/Backend/functions
+        working-directory: Backend/functions
