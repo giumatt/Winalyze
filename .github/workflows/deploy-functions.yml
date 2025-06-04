@@ -25,11 +25,11 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-        working-directory: functions
+        working-directory: backend/functions
 
       - name: Clean .python_packages
         run: rm -rf .python_packages
-        working-directory: functions
+        working-directory: backend/functions
 
       - name: Azure Login
         uses: azure/login@v1
@@ -38,4 +38,4 @@ jobs:
 
       - name: Publish Azure Functions
         run: func azure functionapp publish winalyzefunc --python --no-build --force
-        working-directory: functions
+        working-directory: backend/functions
