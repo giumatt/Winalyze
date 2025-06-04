@@ -14,7 +14,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         
         file_content = file.stream.read()
         original_filename = file.filename or ""
-        original_filename = file.name.lower().strip()
+        original_filename = original_filename.lower().strip()
 
         if "red" in original_filename:
             wine_type = "red"
