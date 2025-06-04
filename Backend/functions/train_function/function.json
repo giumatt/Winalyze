@@ -7,6 +7,27 @@
       "path": "raw/{name}",
       "direction": "in",
       "connection": "AzureWebJobsStorage"
+    },
+    {
+      "name": "modeloutput",
+      "type": "blob",
+      "path": "models/{wine_type}/model_{timestamp}.pkl",
+      "direction": "out",
+      "connection": "AzureWebJobsStorage"
+    },
+    {
+      "name": "scaleroutput", 
+      "type": "blob",
+      "path": "models/{wine_type}/scaler_{timestamp}.pkl",
+      "direction": "out",
+      "connection": "AzureWebJobsStorage"
+    },
+    {
+      "name": "cleanedoutput",
+      "type": "blob",
+      "path": "cleaned/{wine_type}/preprocessed_{timestamp}.csv",
+      "direction": "out",
+      "connection": "AzureWebJobsStorage"
     }
   ]
 }
