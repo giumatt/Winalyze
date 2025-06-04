@@ -1,39 +1,38 @@
 import logging
 import azure.functions as func
-from azure.storage.blob import BlobServiceClient
+from azure.storage.blob import BlobClient
+from datetime import datetime
 import os
-from dotenv import load_dotenv
-
-load_dotenv()
-
-connection_string = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
-blob_service_client = BlobServiceClient.from_connection_string(connection_string)
 
 def main(req: func.HttpRequest) -> func.HttpResponse:
     logging.info('Upload function triggered')
 
-    wine_type = req.params.get('type')
-    if not wine_type:
-        return func.HttpResponse("Missing 'type' query parameter", status_code=400)
-    
-    if wine_type not in ['red', 'white']:
-        return func.HttpResponse("Invalid wine type. It must be 'red' or 'white'", status_code=400)
-    
     try:
-        file = req.files.get("file")
+        file = req.files.get('file')
         if not file:
-            return func.HttpResponse("Missing file upload", status_code=400)
+            return func.HttpResponse("Missing file in request", status_code=400)
         
-        blob_name = f"uploaded_{wine_type}.csv"
-        blob_client = blob_service_client.get_blob_client(container="raw", blob=blob_name)
+        file_content = file.stream.read()
+        original_filename = file.name.lower()
 
-        if blob_client.exists():
-            logging.warning(f"File {blob_name} already exists. I'll delete it")
-            blob_client.delete_blob()
+        if "red" in original_filename:
+            wine_type = "red"
+        elif "white" in original_filename:
+            wine_type = "white"
+        else:
+            return func.HttpResponse("Filename must contain red or white", status_code=400)
+        
+        timestamp = datetime.utcnow().strftime("%Y%m%d%T%H%M%S")
+        blob_name = f"uploaded_{wine_type}-{timestamp}.csv"
 
-        blob_client.upload_blob(file.stream.read(), overwrite=True, metadata={"type": wine_type})
+        blob = BlobClient.from_connection_string(
+            conn_str=os.environ["AzureWebJobsStorage"],
+            container_name="raw",
+            blob_name=blob_name
+        )
+        blob.upload_blob(file_content, overwrite=True)
 
-        return func.HttpResponse(f"File uploaded as {blob_name} and training triggered", status_code=200)
+        return func.HttpResponse(f"File uploaded as: {blob_name}", status_code=200)
     except Exception as e:
         logging.error(f"Upload failed: {e}")
-        return func.HttpResponse(f"Internal server error: {str(e)}", status_code=500)
+        return func.HttpResponse(f"Error: {str(e)}", status_code=500)
