@@ -23,6 +23,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         else:
             return func.HttpResponse("Filename must contain red or white", status_code=400)
         
+        # Sistemare il tempo
         timestamp = datetime.now(timezone.utc).strftime("%Y%m%d%T%H%M%S")
         blob_name = f"uploaded_{wine_type}-{timestamp}.csv"
 
