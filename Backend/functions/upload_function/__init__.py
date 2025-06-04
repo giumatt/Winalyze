@@ -23,9 +23,9 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         else:
             return func.HttpResponse("Filename must contain red or white", status_code=400)
         
-        # Sistemare il tempo
-        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d%T%H%M%S")
-        blob_name = f"uploaded_{wine_type}-{timestamp}.csv"
+        # FIX: Corretto il formato timestamp
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+        blob_name = f"uploaded_{wine_type}_{timestamp}.csv"
 
         blob = BlobClient.from_connection_string(
             conn_str=os.environ["AzureWebJobsStorage"],
@@ -34,7 +34,9 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         )
         blob.upload_blob(file_content, overwrite=True)
 
+        logging.info(f"Successfully uploaded blob: {blob_name}")
         return func.HttpResponse(f"File uploaded as: {blob_name}", status_code=200)
     except Exception as e:
         logging.error(f"Upload failed: {e}")
+        logging.exception("Full stack trace:")
         return func.HttpResponse(f"Error: {str(e)}", status_code=500)
