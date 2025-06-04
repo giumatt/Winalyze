@@ -1,7 +1,7 @@
 import logging
 import azure.functions as func
 from azure.storage.blob import BlobClient
-from datetime import datetime
+from datetime import datetime, timezone
 import os
 
 def main(req: func.HttpRequest) -> func.HttpResponse:
@@ -13,7 +13,8 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             return func.HttpResponse("Missing file in request", status_code=400)
         
         file_content = file.stream.read()
-        original_filename = file.name.lower()
+        original_filename = file.filename or ""
+        original_filename = file.name.lower().strip()
 
         if "red" in original_filename:
             wine_type = "red"
@@ -22,7 +23,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         else:
             return func.HttpResponse("Filename must contain red or white", status_code=400)
         
-        timestamp = datetime.utcnow().strftime("%Y%m%d%T%H%M%S")
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d%T%H%M%S")
         blob_name = f"uploaded_{wine_type}-{timestamp}.csv"
 
         blob = BlobClient.from_connection_string(
