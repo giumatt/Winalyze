@@ -54,7 +54,7 @@ async def main(req: func.HttpRequest) -> func.HttpResponse:
                         content_encoding='utf-8'
                     )
                 )
-
+                '''
                 # Generate preview asynchronously
                 df = await asyncio.to_thread(
                     pd.read_csv,
@@ -71,14 +71,14 @@ async def main(req: func.HttpRequest) -> func.HttpResponse:
                     "message": f"File uploaded as: {blob_name}",
                     "preview": preview_data
                 }
-
+                
                 logging.info(f"Successfully uploaded blob: {blob_name}")
                 return func.HttpResponse(
                     json.dumps(response_data),
                     mimetype="application/json",
                     status_code=200
                 )
-
+                '''
             except ResourceExistsError:
                 return func.HttpResponse(
                     f"A blob with name {blob_name} already exists",
