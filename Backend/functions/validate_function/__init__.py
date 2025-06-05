@@ -1,33 +1,48 @@
 import azure.functions as func
 import logging
 import os
-import io
 from azure.storage.blob import BlobServiceClient
 from test.train_validate import validate_model
 from shared.promote import promote_to_alpha
 
-connection_string = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
-blob_service = BlobServiceClient.from_connection_string(connection_string)
-
-def main(myblob: func.InputStream):
-    blob_name = myblob.name  # es: models/model_red.pkl
-    logging.info(f"🧪 Triggered by new blob: {blob_name}")
+def main(mytimer: func.TimerRequest) -> None:
+    """
+    Azure Function that runs every hour to validate models and promote to alpha if validation passes.
+    """
+    logging.info('Validation timer trigger function started')
 
     try:
-        if 'model_red.pkl' in blob_name:
-            wine_type = "red"
-        elif 'model_white.pkl' in blob_name:
-            wine_type = "white"
-        else:
-            logging.warning("Blob not recognized. No validation done")
-            return
+        # Initialize blob service
+        connection_string = os.environ["AzureWebJobsStorage"]
+        blob_service = BlobServiceClient.from_connection_string(connection_string)
 
-        validate_model(wine_type)
-        logging.info(f"Model '{wine_type}' validated successfully.")
+        # Process both wine types
+        for wine_type in ["red", "white"]:
+            try:
+                # Check if model exists
+                model_container = blob_service.get_container_client("models")
+                model_blob = model_container.get_blob_client(f"model_{wine_type}.pkl")
+                
+                if not model_blob.exists():
+                    logging.info(f"No model found for {wine_type} wine")
+                    continue
 
-        # 🔁 Promozione GitHub
-        promote_to_alpha()
+                # Validate model
+                validation_result = validate_model(wine_type, blob_service)
+                
+                if validation_result:
+                    logging.info(f"Model validation successful for {wine_type} wine")
+                    
+                    # Promote to alpha branch
+                    promote_to_alpha(wine_type)
+                    logging.info(f"Model promoted to alpha branch for {wine_type} wine")
+                else:
+                    logging.warning(f"Model validation failed for {wine_type} wine")
+
+            except Exception as e:
+                logging.error(f"Error processing {wine_type} wine: {str(e)}")
+                continue
 
     except Exception as e:
-        logging.error(f"Error while model validation: {e}")
+        logging.error(f"Validation process failed: {str(e)}")
         raise
