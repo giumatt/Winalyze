@@ -16,7 +16,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.10'
+          python-version: '3.12'
 
       - name: Install Azure Functions Core Tools
         run: npm install -g azure-functions-core-tools@4 --unsafe-perm true
@@ -27,5 +27,5 @@ jobs:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
       - name: Publish Azure Functions
-        run: func azure functionapp publish winalyzefunc --python --force
+        run: func azure functionapp publish winalyzefunc2 --python --force
         working-directory: Backend/functions
