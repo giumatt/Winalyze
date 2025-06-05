@@ -34,6 +34,10 @@ async def main(mytimer: func.TimerRequest,
                         logging.info(f"File {blob_name} non trovato, skipping...")
                         continue
 
+                    # Determina il tipo di vino dal nome del file
+                    wine_type = 'red' if 'red' in blob_name else 'white'
+                    logging.info(f"Processing {wine_type} wine dataset")
+
                     # Leggi il contenuto del blob in modo asincrono
                     blob_data = await blob_client.download_blob()
                     content = await blob_data.readall()
@@ -45,12 +49,12 @@ async def main(mytimer: func.TimerRequest,
                         sep=";"
                     )
 
-                    # Determina il tipo di vino dal nome del file
-                    wine_type = 'red' if 'red' in blob_name else 'white'
-                    logging.info(f"Processing {wine_type} wine dataset")
-
-                    # Preprocessing
-                    df_cleaned, scaler = await asyncio.to_thread(preprocess, df_raw)
+                    # Preprocessing con wine_type
+                    df_cleaned, scaler = await asyncio.to_thread(
+                        preprocess,
+                        df_raw,
+                        wine_type
+                    )
 
                     # Training e salvataggio
                     timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
