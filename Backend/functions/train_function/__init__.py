@@ -6,7 +6,6 @@ import pandas as pd
 from io import BytesIO
 from shared.preprocessing_utils import preprocess
 from shared.model_utils import train_and_save_model
-from datetime import datetime, timezone
 import asyncio
 
 async def main(mytimer: func.TimerRequest,
@@ -16,7 +15,6 @@ async def main(mytimer: func.TimerRequest,
     logging.info('Train function triggered by timer')
 
     try:
-        # Connessione al blob storage
         connection_string = os.environ["AzureWebJobsStorage"]
         async with BlobServiceClient.from_connection_string(connection_string) as blob_service:
             container_client = blob_service.get_container_client("raw")
@@ -25,7 +23,6 @@ async def main(mytimer: func.TimerRequest,
 
             for blob_name in files_to_process:
                 try:
-                    # Controlla se il file esiste
                     blob_client = container_client.get_blob_client(blob_name)
                     exists = await blob_client.exists()
                     
@@ -33,36 +30,24 @@ async def main(mytimer: func.TimerRequest,
                         logging.info(f"File {blob_name} non trovato, skipping...")
                         continue
 
-                    # Determina il tipo di vino
                     wine_type = 'red' if 'red' in blob_name else 'white'
                     logging.info(f"Processing {wine_type} wine dataset")
 
-                    # Leggi il blob
+                    # Leggi e processa i dati
                     blob_data = await blob_client.download_blob()
                     content = await blob_data.readall()
+                    df_raw = await asyncio.to_thread(pd.read_csv, BytesIO(content), sep=";")
                     
-                    # Preprocessing
-                    df_raw = await asyncio.to_thread(
-                        pd.read_csv,
-                        BytesIO(content),
-                        sep=";"
-                    )
-                    
-                    df_cleaned, scaler = await asyncio.to_thread(
-                        preprocess,
-                        df_raw,
-                        wine_type
-                    )
-
-                    # Training e salvataggio
+                    # Preprocessing e training
+                    df_cleaned, scaler = await asyncio.to_thread(preprocess, df_raw, wine_type)
                     model_bytes, scaler_bytes = await asyncio.to_thread(
-                        train_and_save_model,
-                        df_cleaned,
+                        train_and_save_model, 
+                        df_cleaned, 
                         scaler,
                         wine_type
                     )
 
-                    # Output binding
+                    # Salva i risultati
                     modelOutput.set(model_bytes)
                     scalerOutput.set(scaler_bytes)
                     cleanedOutput.set(df_cleaned.to_csv(index=False).encode())
