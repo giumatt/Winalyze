@@ -5,9 +5,24 @@ import pandas as pd
 from azure.storage.blob import BlobServiceClient
 import os
 import logging
+from typing import Tuple, Any
 
-def train_and_save_model(df_cleaned: pd.DataFrame, scaler, wine_type: str):
+def train_and_save_model(df_cleaned: pd.DataFrame, scaler: Any, wine_type: str) -> Tuple[bytes, bytes]:
+    """
+    Addestra e salva il modello per un tipo specifico di vino.
+    
+    Args:
+        df_cleaned (pd.DataFrame): DataFrame preprocessato
+        scaler: Scaler addestrato sui dati
+        wine_type (str): Tipo di vino ('red' o 'white')
+        
+    Returns:
+        Tuple[bytes, bytes]: Coppia di (model_bytes, scaler_bytes)
+    """
     try:
+        if wine_type not in ['red', 'white']:
+            raise ValueError("wine_type deve essere 'red' o 'white'")
+
         X = df_cleaned.drop("quality", axis=1)
         y = df_cleaned["quality"]
         
@@ -18,6 +33,7 @@ def train_and_save_model(df_cleaned: pd.DataFrame, scaler, wine_type: str):
         )
         model.fit(X, y)
 
+        # Serializzazione
         model_bytes = io.BytesIO()
         scaler_bytes = io.BytesIO()
         
@@ -38,7 +54,7 @@ def train_and_save_model(df_cleaned: pd.DataFrame, scaler, wine_type: str):
         scaler_blob.upload_blob(scaler_bytes.getvalue(), overwrite=True)
 
         logging.info(f"Modello e scaler salvati con successo per vino {wine_type}")
-        return True
+        return model_bytes.getvalue(), scaler_bytes.getvalue()
 
     except Exception as e:
         logging.error(f"Errore nel salvataggio del modello: {str(e)}")

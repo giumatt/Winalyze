@@ -21,7 +21,6 @@ async def main(mytimer: func.TimerRequest,
         async with BlobServiceClient.from_connection_string(connection_string) as blob_service:
             container_client = blob_service.get_container_client("raw")
 
-            # Lista dei file da processare
             files_to_process = ['uploaded_red.csv', 'uploaded_white.csv']
 
             for blob_name in files_to_process:
@@ -34,22 +33,21 @@ async def main(mytimer: func.TimerRequest,
                         logging.info(f"File {blob_name} non trovato, skipping...")
                         continue
 
-                    # Determina il tipo di vino dal nome del file
+                    # Determina il tipo di vino
                     wine_type = 'red' if 'red' in blob_name else 'white'
                     logging.info(f"Processing {wine_type} wine dataset")
 
-                    # Leggi il contenuto del blob in modo asincrono
+                    # Leggi il blob
                     blob_data = await blob_client.download_blob()
                     content = await blob_data.readall()
                     
-                    # Processa i dati in modo asincrono
+                    # Preprocessing
                     df_raw = await asyncio.to_thread(
                         pd.read_csv,
                         BytesIO(content),
                         sep=";"
                     )
-
-                    # Preprocessing con wine_type
+                    
                     df_cleaned, scaler = await asyncio.to_thread(
                         preprocess,
                         df_raw,
@@ -57,21 +55,19 @@ async def main(mytimer: func.TimerRequest,
                     )
 
                     # Training e salvataggio
-                    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-                    
-                    # Training del modello in modo asincrono
                     model_bytes, scaler_bytes = await asyncio.to_thread(
                         train_and_save_model,
                         df_cleaned,
-                        scaler
+                        scaler,
+                        wine_type
                     )
 
-                    # Usa i binding per salvare gli output
+                    # Output binding
                     modelOutput.set(model_bytes)
                     scalerOutput.set(scaler_bytes)
                     cleanedOutput.set(df_cleaned.to_csv(index=False).encode())
 
-                    logging.info(f"Training completed for {wine_type} wine")
+                    logging.info(f"Training completato per vino {wine_type}")
 
                 except Exception as e:
                     logging.error(f"Error processing {blob_name}: {str(e)}")
