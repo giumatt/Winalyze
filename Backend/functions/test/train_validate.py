@@ -2,57 +2,95 @@ import pandas as pd
 import joblib
 import io
 import os
-from sklearn.metrics import accuracy_score
-from sklearn.model_selection import train_test_split
+import logging
+from typing import Dict
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 from azure.storage.blob import BlobServiceClient
-from dotenv import load_dotenv
 
-load_dotenv()
-connection_string = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
-blob_service = BlobServiceClient.from_connection_string(connection_string)
+def get_metrics(y_true: pd.Series, y_pred: pd.Series) -> Dict[str, float]:
+    """
+    Calculate model performance metrics.
+    
+    Args:
+        y_true: Actual values
+        y_pred: Predicted values
+        
+    Returns:
+        Dictionary containing metrics
+    """
+    return {
+        'accuracy': accuracy_score(y_true, y_pred),
+        'precision': precision_score(y_true, y_pred, average='weighted'),
+        'recall': recall_score(y_true, y_pred, average='weighted'),
+        'f1': f1_score(y_true, y_pred, average='weighted')
+    }
 
-def validate_model(wine_type):
+def validate_model(wine_type: str, blob_service: BlobServiceClient) -> bool:
+    """
+    Validate model against test dataset.
+    
+    Args:
+        wine_type: Type of wine model to validate ('red' or 'white')
+        blob_service: BlobServiceClient instance
+        
+    Returns:
+        bool: True if validation passes, False otherwise
+    """
     try:
-        print(f"\n Validating model: {wine_type.upper()}")
+        logging.info(f"Starting validation for {wine_type} model")
 
-        # Scarica modello e scaler
-        model_blob = blob_service.get_blob_client(container="models", blob=f"model_{wine_type}.pkl")
-        scaler_blob = blob_service.get_blob_client(container="models", blob=f"scaler_{wine_type}.pkl")
+        # Download model and scaler
+        model_container = blob_service.get_container_client("models")
+        model_blob = model_container.get_blob_client(f"model_{wine_type}.pkl")
+        scaler_blob = model_container.get_blob_client(f"scaler_{wine_type}.pkl")
 
-        model_data = model_blob.download_blob().readall()
-        scaler_data = scaler_blob.download_blob().readall()
+        model = joblib.load(io.BytesIO(model_blob.download_blob().readall()))
+        scaler = joblib.load(io.BytesIO(scaler_blob.download_blob().readall()))
 
-        model = joblib.load(io.BytesIO(model_data))
-        scaler = joblib.load(io.BytesIO(scaler_data))
+        # Load test data
+        test_container = blob_service.get_container_client("test-data")
+        test_blob = test_container.get_blob_client(f"test_{wine_type}.csv")
+        
+        df = pd.read_csv(
+            io.BytesIO(test_blob.download_blob().readall()),
+            sep=";"
+        )
 
-        # Carica CSV di test
-        df = pd.read_csv(f"backend/test/data/selected_{wine_type}.csv")
         X = df.drop("quality", axis=1)
         y = df["quality"]
 
-        # Preprocessing
+        # Preprocess test data
         X_scaled = scaler.transform(X)
-        X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.3, random_state=42)
+        
+        # Make predictions and evaluate
+        y_pred = model.predict(X_scaled)
+        metrics = get_metrics(y, y_pred)
+        
+        # Log metrics
+        for metric_name, value in metrics.items():
+            logging.info(f"{wine_type} model {metric_name}: {value:.4f}")
 
-        # Predizione e valutazione
-        y_pred = model.predict(X_test)
-        acc = accuracy_score(y_test, y_pred)
+        # Define validation thresholds
+        thresholds = {
+            'accuracy': 0.70,
+            'precision': 0.65,
+            'recall': 0.65,
+            'f1': 0.65
+        }
+        
+        # Check if all metrics pass thresholds
+        validation_passed = all(
+            metrics[metric] >= threshold 
+            for metric, threshold in thresholds.items()
+        )
 
-        print(f"✅ {wine_type.upper()} model accuracy: {acc:.4f}")
-        assert acc >= 0.7, f"Accuracy for {wine_type} model too low: {acc:.4f}"
-        return True
+        if validation_passed:
+            logging.info(f"Validation successful for {wine_type} model")
+        else:
+            logging.warning(f"Validation failed for {wine_type} model")
+            
+        return validation_passed
 
     except Exception as e:
-        print(f"⚠️ Skipping {wine_type.upper()} model: {e}")
-        return None
-
-# Valida modelli presenti
-results = []
-for t in ["red", "white"]:
-    result = validate_model(t)
-    results.append(result)
-    if result is False:
-        raise AssertionError(f"Validation failed for {t} model.")
-
-if any(r is True for r in results):
-    print("\n🎉 All present models validated successfully!")
+        logging.error(f"Error validating {wine_type} model: {str(e)}")
+        raise
