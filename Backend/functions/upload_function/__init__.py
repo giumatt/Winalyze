@@ -4,9 +4,6 @@ from azure.storage.blob.aio import BlobServiceClient
 from azure.storage.blob import ContentSettings
 from azure.core.exceptions import ResourceExistsError
 import os
-import pandas as pd
-import io
-import json
 import asyncio
 
 async def main(req: func.HttpRequest) -> func.HttpResponse:
@@ -45,7 +42,7 @@ async def main(req: func.HttpRequest) -> func.HttpResponse:
             blob_client = container_client.get_blob_client(blob_name)
 
             try:
-                # Upload file asynchronously with proper ContentSettings object
+                # Upload file asynchronously
                 await blob_client.upload_blob(
                     file_content,
                     overwrite=True,
@@ -54,31 +51,13 @@ async def main(req: func.HttpRequest) -> func.HttpResponse:
                         content_encoding='utf-8'
                     )
                 )
-                '''
-                # Generate preview asynchronously
-                df = await asyncio.to_thread(
-                    pd.read_csv,
-                    io.BytesIO(file_content),
-                    sep=";",
-                    nrows=5
-                )
-                preview_data = await asyncio.to_thread(
-                    df.to_dict,
-                    orient='records'
-                )
-
-                response_data = {
-                    "message": f"File uploaded as: {blob_name}",
-                    "preview": preview_data
-                }
                 
-                logging.info(f"Successfully uploaded blob: {blob_name}")
+                logging.info(f"File successfully uploaded as: {blob_name}")
                 return func.HttpResponse(
-                    json.dumps(response_data),
-                    mimetype="application/json",
+                    f"File successfully uploaded as: {blob_name}",
                     status_code=200
                 )
-                '''
+                
             except ResourceExistsError:
                 return func.HttpResponse(
                     f"A blob with name {blob_name} already exists",
