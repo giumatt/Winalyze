@@ -44,9 +44,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: python-app
-          path: |
-            ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}/release.zip
-            !venv/
+          path: ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}/release.zip  # Rimosso il pattern !venv/
 
   deploy:
     runs-on: ubuntu-latest
@@ -61,9 +59,14 @@ jobs:
         with:
           name: python-app
 
-      - name: Unzip artifact for deployment
-        run: unzip release.zip     
-        
+      - name: Create deployment directory
+        run: |
+          mkdir -p deployment
+          mv release.zip deployment/
+          cd deployment
+          unzip release.zip
+          rm release.zip
+
       - name: Login to Azure
         uses: azure/login@v2
         with:
@@ -77,5 +80,4 @@ jobs:
         with:
           app-name: 'winalyzefunc'
           slot-name: 'Production'
-          package: ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
-          
+          package: './deployment'
