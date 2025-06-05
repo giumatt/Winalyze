@@ -33,7 +33,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -U pip
-          pip install -r requirements.txt
+          pip install -r ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}/requirements.txt
 
       - name: Zip artifact for deployment
         run: |
