@@ -1,6 +1,7 @@
 import logging
 import azure.functions as func
 from azure.storage.blob.aio import BlobServiceClient
+from azure.storage.blob import ContentSettings
 from azure.core.exceptions import ResourceExistsError
 import os
 import pandas as pd
@@ -44,14 +45,14 @@ async def main(req: func.HttpRequest) -> func.HttpResponse:
             blob_client = container_client.get_blob_client(blob_name)
 
             try:
-                # Upload file asynchronously
+                # Upload file asynchronously with proper ContentSettings object
                 await blob_client.upload_blob(
                     file_content,
                     overwrite=True,
-                    content_settings={
-                        "content_type": "text/csv",
-                        "content_encoding": "utf-8"
-                    }
+                    content_settings=ContentSettings(
+                        content_type='text/csv',
+                        content_encoding='utf-8'
+                    )
                 )
 
                 # Generate preview asynchronously
