@@ -9,9 +9,7 @@ from shared.model_utils import train_and_save_model
 import asyncio
 
 async def main(mytimer: func.TimerRequest,
-              modelTestOutput: func.Out[bytes],
-              scalerOutput: func.Out[bytes],
-              cleanedOutput: func.Out[bytes]) -> None:
+              cleanedOutput: func.Out[bytes]) -> None:  # Rimuovi i binding non necessari
     logging.info('Train function triggered by timer')
 
     try:
@@ -47,18 +45,17 @@ async def main(mytimer: func.TimerRequest,
                         wine_type
                     )
 
-                    # Usa i binding corretti per salvare i file nei container appropriati
-                    # Il modello va in models-testing
+                    # Salva il modello in models-testing
                     models_testing_container = blob_service.get_container_client("models-testing")
                     model_blob = models_testing_container.get_blob_client(f"model_{wine_type}-testing.pkl")
                     await model_blob.upload_blob(model_bytes, overwrite=True)
 
-                    # Lo scaler va in models
+                    # Salva lo scaler in models
                     models_container = blob_service.get_container_client("models")
                     scaler_blob = models_container.get_blob_client(f"scaler_{wine_type}.pkl")
                     await scaler_blob.upload_blob(scaler_bytes, overwrite=True)
 
-                    # Il dataset pulito va in cleaned
+                    # Salva il dataset pulito
                     cleanedOutput.set(df_cleaned.to_csv(index=False).encode())
 
                     logging.info(f"Training completato per vino {wine_type}:")
