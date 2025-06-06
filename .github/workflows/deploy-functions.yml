@@ -27,5 +27,5 @@ jobs:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
       - name: Publish Azure Functions
-        run: func azure functionapp publish winalyzefunc --python --force
+        run: func azure functionapp publish winalyzefunc --python
         working-directory: Backend/functions
