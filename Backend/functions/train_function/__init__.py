@@ -9,15 +9,15 @@ from shared.model_utils import train_and_save_model
 import asyncio
 
 async def main(mytimer: func.TimerRequest,
-              modelTestOutput: func.Out[bytes],
-              scalerOutput: func.Out[bytes],
-              cleanedOutput: func.Out[bytes]) -> None:
+              cleanedOutput: func.Out[bytes]) -> None:  # Solo il binding per il dataset pulito
     logging.info('Train function triggered by timer')
 
     try:
         connection_string = os.environ["AzureWebJobsStorage"]
         async with BlobServiceClient.from_connection_string(connection_string) as blob_service:
             container_client = blob_service.get_container_client("raw")
+            models_testing_container = blob_service.get_container_client("models-testing")
+            models_container = blob_service.get_container_client("models")
 
             files_to_process = ['uploaded_red.csv', 'uploaded_white.csv']
 
@@ -47,13 +47,15 @@ async def main(mytimer: func.TimerRequest,
                         wine_type
                     )
 
-                    # Salva il modello in models-testing usando il binding
-                    modelTestOutput.set(model_bytes)
+                    # Salva il modello in models-testing con il suffisso -testing
+                    model_blob = models_testing_container.get_blob_client(f"model_{wine_type}-testing.pkl")
+                    await model_blob.upload_blob(model_bytes, overwrite=True)
 
-                    # Salva lo scaler in models usando il binding
-                    scalerOutput.set(scaler_bytes)
+                    # Salva lo scaler direttamente in models
+                    scaler_blob = models_container.get_blob_client(f"scaler_{wine_type}.pkl")
+                    await scaler_blob.upload_blob(scaler_bytes, overwrite=True)
 
-                    # Salva il dataset pulito
+                    # Salva il dataset pulito usando il binding
                     cleanedOutput.set(df_cleaned.to_csv(index=False).encode())
 
                     logging.info(f"Training completato per vino {wine_type}:")

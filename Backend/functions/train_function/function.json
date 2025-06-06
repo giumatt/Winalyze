@@ -8,20 +8,6 @@
       "schedule": "0 */1 * * * *"
     },
     {
-      "name": "modelTestOutput",
-      "type": "blob",
-      "direction": "out",
-      "path": "models-testing/model_{wine_type}-testing.pkl",
-      "connection": "AzureWebJobsStorage"
-    },
-    {
-      "name": "scalerOutput",
-      "type": "blob",
-      "direction": "out",
-      "path": "models/scaler_{wine_type}.pkl",
-      "connection": "AzureWebJobsStorage"
-    },
-    {
       "name": "cleanedOutput",
       "type": "blob",
       "direction": "out",
