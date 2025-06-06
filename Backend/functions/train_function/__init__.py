@@ -47,14 +47,24 @@ async def main(mytimer: func.TimerRequest,
                         wine_type
                     )
 
-                    # Salva il modello con suffisso -testing in models-test e lo scaler direttamente in models
-                    modelTestOutput.set(model_bytes)  # Sarà model_{wine_type}-testing.pkl in models-test
-                    scalerOutput.set(scaler_bytes)    # Sarà scaler_{wine_type}.pkl in models
+                    # Usa i binding corretti per salvare i file nei container appropriati
+                    # Il modello va in models-testing
+                    models_testing_container = blob_service.get_container_client("models-testing")
+                    model_blob = models_testing_container.get_blob_client(f"model_{wine_type}-testing.pkl")
+                    await model_blob.upload_blob(model_bytes, overwrite=True)
+
+                    # Lo scaler va in models
+                    models_container = blob_service.get_container_client("models")
+                    scaler_blob = models_container.get_blob_client(f"scaler_{wine_type}.pkl")
+                    await scaler_blob.upload_blob(scaler_bytes, overwrite=True)
+
+                    # Il dataset pulito va in cleaned
                     cleanedOutput.set(df_cleaned.to_csv(index=False).encode())
 
                     logging.info(f"Training completato per vino {wine_type}:")
-                    logging.info(f"- Modello salvato come model_{wine_type}-testing.pkl in models-test")
-                    logging.info(f"- Scaler salvato come scaler_{wine_type}.pkl in models")
+                    logging.info(f"- Modello salvato in models-testing/model_{wine_type}-testing.pkl")
+                    logging.info(f"- Scaler salvato in models/scaler_{wine_type}.pkl")
+                    logging.info(f"- Dataset pulito salvato in cleaned/data_{wine_type}.csv")
 
                 except Exception as e:
                     logging.error(f"Error processing {blob_name}: {str(e)}")
