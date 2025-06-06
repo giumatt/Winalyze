@@ -5,27 +5,27 @@
       "name": "mytimer",
       "type": "timerTrigger",
       "direction": "in",
-      "schedule": "0 */30 * * * *"
+      "schedule": "0 */1 * * * *"
     },
     {
-      "name": "modelOutput",
+      "name": "modelTestOutput",
       "type": "blob",
       "direction": "out",
-      "path": "models/{wine_type}/model.pkl",
+      "path": "models-test/model_{wine_type}-testing.pkl",
       "connection": "AzureWebJobsStorage"
     },
     {
       "name": "scalerOutput",
       "type": "blob",
       "direction": "out",
-      "path": "models/{wine_type}/scaler.pkl",
+      "path": "models/scaler_{wine_type}.pkl",
       "connection": "AzureWebJobsStorage"
     },
     {
       "name": "cleanedOutput",
       "type": "blob",
       "direction": "out",
-      "path": "cleaned/{wine_type}/data.csv",
+      "path": "cleaned/data_{wine_type}.csv",
       "connection": "AzureWebJobsStorage"
     }
   ]

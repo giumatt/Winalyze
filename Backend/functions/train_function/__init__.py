@@ -9,7 +9,7 @@ from shared.model_utils import train_and_save_model
 import asyncio
 
 async def main(mytimer: func.TimerRequest,
-              modelOutput: func.Out[bytes],
+              modelTestOutput: func.Out[bytes],
               scalerOutput: func.Out[bytes],
               cleanedOutput: func.Out[bytes]) -> None:
     logging.info('Train function triggered by timer')
@@ -47,12 +47,12 @@ async def main(mytimer: func.TimerRequest,
                         wine_type
                     )
 
-                    # Salva i risultati
-                    modelOutput.set(model_bytes)
+                    # Salva il modello in models-test e lo scaler direttamente in models
+                    modelTestOutput.set(model_bytes)
                     scalerOutput.set(scaler_bytes)
                     cleanedOutput.set(df_cleaned.to_csv(index=False).encode())
 
-                    logging.info(f"Training completato per vino {wine_type}")
+                    logging.info(f"Training completato per vino {wine_type}. Modello salvato in models-test, scaler in models")
 
                 except Exception as e:
                     logging.error(f"Error processing {blob_name}: {str(e)}")
