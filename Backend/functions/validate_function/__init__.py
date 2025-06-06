@@ -25,20 +25,23 @@ def main(myblob: func.InputStream) -> None:
         if validation_result:
             logging.info(f"Model validation successful for {wine_type} wine")
             
-            # Move only model from test to production
+            # Move model from test to production with new name
             test_container = blob_service.get_container_client("models-test")
             prod_container = blob_service.get_container_client("models")
             
-            # Get source blob
+            # Get source blob (with -testing suffix)
             source_blob = test_container.get_blob_client(f"model_{wine_type}-testing.pkl")
-            # Get destination blob
+            
+            # Get destination blob (without -testing suffix)
             dest_blob = prod_container.get_blob_client(f"model_{wine_type}.pkl")
+            
             # Copy blob
             dest_blob.start_copy_from_url(source_blob.url)
-            # Delete source blob
+            
+            # Delete source blob after successful copy
             source_blob.delete_blob()
                 
-            logging.info(f"Model moved to production for {wine_type} wine")
+            logging.info(f"Model moved to production and renamed for {wine_type} wine")
         else:
             logging.warning(f"Model validation failed for {wine_type} wine")
 

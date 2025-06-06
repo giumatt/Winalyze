@@ -47,12 +47,14 @@ async def main(mytimer: func.TimerRequest,
                         wine_type
                     )
 
-                    # Salva il modello in models-test e lo scaler direttamente in models
-                    modelTestOutput.set(model_bytes)
-                    scalerOutput.set(scaler_bytes)
+                    # Salva il modello con suffisso -testing in models-test e lo scaler direttamente in models
+                    modelTestOutput.set(model_bytes)  # Sarà model_{wine_type}-testing.pkl in models-test
+                    scalerOutput.set(scaler_bytes)    # Sarà scaler_{wine_type}.pkl in models
                     cleanedOutput.set(df_cleaned.to_csv(index=False).encode())
 
-                    logging.info(f"Training completato per vino {wine_type}. Modello salvato in models-test, scaler in models")
+                    logging.info(f"Training completato per vino {wine_type}:")
+                    logging.info(f"- Modello salvato come model_{wine_type}-testing.pkl in models-test")
+                    logging.info(f"- Scaler salvato come scaler_{wine_type}.pkl in models")
 
                 except Exception as e:
                     logging.error(f"Error processing {blob_name}: {str(e)}")
