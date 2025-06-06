@@ -3,45 +3,44 @@ import logging
 import os
 from azure.storage.blob import BlobServiceClient
 from test.train_validate import validate_model
-from shared.promote import promote_to_alpha
 
-def main(mytimer: func.TimerRequest) -> None:
+def main(myblob: func.InputStream) -> None:
     """
-    Azure Function that runs every hour to validate models and promote to alpha if validation passes.
+    Azure Function triggered when a new model is saved in models-test container.
+    Validates the model and if successful, moves it to production container.
     """
-    logging.info('Validation timer trigger function started')
-
     try:
+        # Get wine type from blob name
+        blob_name = myblob.name
+        wine_type = "red" if "model_red" in blob_name else "white"
+        logging.info(f"Validation triggered for {wine_type} wine model")
+
         # Initialize blob service
         connection_string = os.environ["AzureWebJobsStorage"]
         blob_service = BlobServiceClient.from_connection_string(connection_string)
 
-        # Process both wine types
-        for wine_type in ["red", "white"]:
-            try:
-                # Check if model exists
-                model_container = blob_service.get_container_client("models")
-                model_blob = model_container.get_blob_client(f"model_{wine_type}.pkl")
+        # Validate model
+        validation_result = validate_model(wine_type, blob_service)
+        
+        if validation_result:
+            logging.info(f"Model validation successful for {wine_type} wine")
+            
+            # Move only model from test to production
+            test_container = blob_service.get_container_client("models-test")
+            prod_container = blob_service.get_container_client("models")
+            
+            # Get source blob
+            source_blob = test_container.get_blob_client(f"model_{wine_type}-testing.pkl")
+            # Get destination blob
+            dest_blob = prod_container.get_blob_client(f"model_{wine_type}.pkl")
+            # Copy blob
+            dest_blob.start_copy_from_url(source_blob.url)
+            # Delete source blob
+            source_blob.delete_blob()
                 
-                if not model_blob.exists():
-                    logging.info(f"No model found for {wine_type} wine")
-                    continue
-
-                # Validate model
-                validation_result = validate_model(wine_type, blob_service)
-                
-                if validation_result:
-                    logging.info(f"Model validation successful for {wine_type} wine")
-                    
-                    # Promote to alpha branch
-                    promote_to_alpha(wine_type)
-                    logging.info(f"Model promoted to alpha branch for {wine_type} wine")
-                else:
-                    logging.warning(f"Model validation failed for {wine_type} wine")
-
-            except Exception as e:
-                logging.error(f"Error processing {wine_type} wine: {str(e)}")
-                continue
+            logging.info(f"Model moved to production for {wine_type} wine")
+        else:
+            logging.warning(f"Model validation failed for {wine_type} wine")
 
     except Exception as e:
         logging.error(f"Validation process failed: {str(e)}")

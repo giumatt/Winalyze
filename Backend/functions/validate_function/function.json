@@ -2,10 +2,11 @@
     "scriptFile": "__init__.py",
     "bindings": [
         {
-            "name": "mytimer",
-            "type": "timerTrigger",
+            "name": "myblob",
+            "type": "blobTrigger",
             "direction": "in",
-            "schedule": "0 0 * * * *"
+            "path": "models-test/model_{wine_type}.pkl",
+            "connection": "AzureWebJobsStorage"
         }
     ]
 }
