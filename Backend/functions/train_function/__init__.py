@@ -6,7 +6,7 @@ import pandas as pd
 from io import BytesIO
 from shared.preprocessing_utils import preprocess
 from shared.model_utils import train_model
-from validate_function.__init__ import main as validate_func
+from test.train_validate import validate_model
 import asyncio
 
 async def main(mytimer: func.TimerRequest,
@@ -67,7 +67,7 @@ async def main(mytimer: func.TimerRequest,
                             self.name = name
                     
                     mock_blob = MockBlob(f"models-testing/model_{wine_type}-testing.pkl")
-                    await validate_func(mock_blob)
+                    await validate_model(mock_blob)
 
                     logging.info(f"Validazione richiesta per il modello {wine_type}")
 
