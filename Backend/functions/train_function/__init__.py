@@ -6,6 +6,7 @@ import pandas as pd
 from io import BytesIO
 from shared.preprocessing_utils import preprocess
 from shared.model_utils import train_model
+from validate_function.__init__ import main as validate_func
 import asyncio
 
 async def main(mytimer: func.TimerRequest,
@@ -58,10 +59,17 @@ async def main(mytimer: func.TimerRequest,
                     # Salva il dataset pulito
                     cleanedOutput.set(df_cleaned.to_csv(index=False).encode())
 
-                    logging.info(f"Training completato per vino {wine_type}:")
-                    logging.info(f"- Modello salvato SOLO in models-testing/model_{wine_type}-testing.pkl")
-                    logging.info(f"- Scaler salvato in models/scaler_{wine_type}.pkl")
-                    logging.info(f"- Dataset pulito salvato in cleaned/data_{wine_type}.csv")
+                    logging.info(f"Training completato per vino {wine_type}")
+
+                    # Chiama validate_function
+                    class MockBlob:
+                        def __init__(self, name):
+                            self.name = name
+                    
+                    mock_blob = MockBlob(f"models-testing/model_{wine_type}-testing.pkl")
+                    await validate_func(mock_blob)
+
+                    logging.info(f"Validazione richiesta per il modello {wine_type}")
 
                 except Exception as e:
                     logging.error(f"Error processing {blob_name}: {str(e)}")

@@ -4,7 +4,7 @@ import os
 from azure.storage.blob import BlobServiceClient
 from test.train_validate import validate_model
 
-def main(myblob: func.InputStream) -> None:
+async def main(myblob: func.InputStream) -> None:
     """
     Azure Function triggered when a new model is saved in models-test container.
     Validates the model and if successful, moves it to production container.
@@ -26,7 +26,7 @@ def main(myblob: func.InputStream) -> None:
             logging.info(f"Model validation successful for {wine_type} wine")
             
             # Move model from test to production with new name
-            test_container = blob_service.get_container_client("models-test")
+            test_container = blob_service.get_container_client("models-testing")
             prod_container = blob_service.get_container_client("models")
             
             # Get source blob (with -testing suffix)
