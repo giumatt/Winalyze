@@ -11,7 +11,7 @@
       "name": "modelTestOutput",
       "type": "blob",
       "direction": "out",
-      "path": "models-test/model_{wine_type}-testing.pkl",
+      "path": "models-testing/model_{wine_type}-testing.pkl",
       "connection": "AzureWebJobsStorage"
     },
     {
