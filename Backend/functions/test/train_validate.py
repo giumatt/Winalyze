@@ -40,9 +40,10 @@ def validate_model(wine_type: str, blob_service: BlobServiceClient) -> bool:
         logging.info(f"Starting validation for {wine_type} model")
 
         # Download model and scaler
-        model_container = blob_service.get_container_client("models")
-        model_blob = model_container.get_blob_client(f"model_{wine_type}.pkl")
-        scaler_blob = model_container.get_blob_client(f"scaler_{wine_type}.pkl")
+        model_container = blob_service.get_container_client("models-testing")
+        model_blob = model_container.get_blob_client(f"model_{wine_type}-testing.pkl")
+        scaler_container = blob_service.get_container_client("models")
+        scaler_blob = scaler_container.get_blob_client(f"scaler_{wine_type}.pkl")
 
         model = joblib.load(io.BytesIO(model_blob.download_blob().readall()))
         scaler = joblib.load(io.BytesIO(scaler_blob.download_blob().readall()))
