@@ -5,11 +5,11 @@ import os
 import pandas as pd
 from io import BytesIO
 from shared.preprocessing_utils import preprocess
-from shared.model_utils import train_and_save_model
+from shared.model_utils import train_model
 import asyncio
 
 async def main(mytimer: func.TimerRequest,
-              cleanedOutput: func.Out[bytes]) -> None:  # Solo il binding per il dataset pulito
+              cleanedOutput: func.Out[bytes]) -> None:
     logging.info('Train function triggered by timer')
 
     try:
@@ -38,28 +38,28 @@ async def main(mytimer: func.TimerRequest,
                     content = await blob_data.readall()
                     df_raw = await asyncio.to_thread(pd.read_csv, BytesIO(content), sep=";")
                     
-                    # Preprocessing e training
+                    # Train model
                     df_cleaned, scaler = await asyncio.to_thread(preprocess, df_raw, wine_type)
                     model_bytes, scaler_bytes = await asyncio.to_thread(
-                        train_and_save_model, 
+                        train_model, 
                         df_cleaned, 
                         scaler,
                         wine_type
                     )
 
-                    # Salva il modello in models-testing con il suffisso -testing
+                    # Salva SOLO in models-testing con il suffisso -testing
                     model_blob = models_testing_container.get_blob_client(f"model_{wine_type}-testing.pkl")
                     await model_blob.upload_blob(model_bytes, overwrite=True)
 
-                    # Salva lo scaler direttamente in models
+                    # Salva lo scaler in models
                     scaler_blob = models_container.get_blob_client(f"scaler_{wine_type}.pkl")
                     await scaler_blob.upload_blob(scaler_bytes, overwrite=True)
 
-                    # Salva il dataset pulito usando il binding
+                    # Salva il dataset pulito
                     cleanedOutput.set(df_cleaned.to_csv(index=False).encode())
 
                     logging.info(f"Training completato per vino {wine_type}:")
-                    logging.info(f"- Modello salvato in models-testing/model_{wine_type}-testing.pkl")
+                    logging.info(f"- Modello salvato SOLO in models-testing/model_{wine_type}-testing.pkl")
                     logging.info(f"- Scaler salvato in models/scaler_{wine_type}.pkl")
                     logging.info(f"- Dataset pulito salvato in cleaned/data_{wine_type}.csv")
 
