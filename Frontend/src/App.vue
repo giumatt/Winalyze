@@ -167,7 +167,7 @@ async function uploadDataset() {
     const formData = new FormData()
     formData.append('file', file.value)
 
-    const res = await fetch(`http://localhost:8000/upload-dataset?wine_type=${type.value}`, {
+    const res = await fetch(`https://winalyzefunc.azurewebsites.net/api/upload_function?wine_type=${type.value}`, {
       method: 'POST',
       body: formData
     })
@@ -237,7 +237,7 @@ async function handlePredictSubmit() {
       }
     }
 
-    const response = await fetch('http://localhost:8000/predict', {
+    const response = await fetch('https://winalyzefunc.azurewebsites.net/api/infer_function', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({ type: type.value, input: cleanedValues })
