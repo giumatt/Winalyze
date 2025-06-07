@@ -39,23 +39,29 @@ async def validate_model(wine_type: str, blob_service: BlobServiceClient) -> boo
     try:
         logging.info(f"Starting validation for {wine_type} model")
 
-        # Download model and scaler
-        model_container = blob_service.get_container_client("models-testing")
-        model_blob = model_container.get_blob_client(f"model_{wine_type}-testing.pkl")
-        scaler_container = blob_service.get_container_client("models")
-        scaler_blob = scaler_container.get_blob_client(f"scaler_{wine_type}.pkl")
+        # Download model and scaler using direct blob access
+        model_blob = blob_service.get_blob_client(container="models-testing", 
+                                                blob=f"model_{wine_type}-testing.pkl")
+        scaler_blob = blob_service.get_blob_client(container="models", 
+                                                 blob=f"scaler_{wine_type}.pkl")
 
-        model = joblib.load(io.BytesIO(model_blob.download_blob().readall()))
-        scaler = joblib.load(io.BytesIO(scaler_blob.download_blob().readall()))
+        # Download e carica il modello
+        blob_model_stream = await model_blob.download_blob()
+        model_data = await blob_model_stream.readall()
+        model = joblib.load(io.BytesIO(model_data))
+
+        # Download e carica lo scaler
+        blob_scaler_stream = await scaler_blob.download_blob()
+        scaler_data = await blob_scaler_stream.readall()
+        scaler = joblib.load(io.BytesIO(scaler_data))
 
         # Load test data
-        test_container = blob_service.get_container_client("test-data")
-        test_blob = test_container.get_blob_client(f"test_{wine_type}.csv")
+        test_blob = blob_service.get_blob_client(container="test-data", 
+                                               blob=f"test_{wine_type}.csv")
         
-        df = pd.read_csv(
-            io.BytesIO(test_blob.download_blob().readall()),
-            sep=";"
-        )
+        test_stream = await test_blob.download_blob()
+        test_data = await test_stream.readall()
+        df = pd.read_csv(io.BytesIO(test_data), sep=";")
 
         X = df.drop("quality", axis=1)
         y = df["quality"]
@@ -71,7 +77,7 @@ async def validate_model(wine_type: str, blob_service: BlobServiceClient) -> boo
         for metric_name, value in metrics.items():
             logging.info(f"{wine_type} model {metric_name}: {value:.4f}")
 
-        # Define validation thresholds
+        # Check thresholds
         thresholds = {
             'accuracy': 0.70,
             'precision': 0.65,
@@ -79,7 +85,6 @@ async def validate_model(wine_type: str, blob_service: BlobServiceClient) -> boo
             'f1': 0.65
         }
         
-        # Check if all metrics pass thresholds
         validation_passed = all(
             metrics[metric] >= threshold 
             for metric, threshold in thresholds.items()
@@ -87,28 +92,22 @@ async def validate_model(wine_type: str, blob_service: BlobServiceClient) -> boo
 
         if validation_passed:
             logging.info(f"Validation successful for {wine_type} model")
-            # Sposta il modello da testing a production
-            test_container = blob_service.get_container_client("models-testing")
-            prod_container = blob_service.get_container_client("models")
             
-            # Get source blob
-            source_blob = test_container.get_blob_client(f"model_{wine_type}-testing.pkl")
+            # Promuovi il modello in production
+            prod_blob = blob_service.get_blob_client(container="models", 
+                                                   blob=f"model_{wine_type}.pkl")
             
-            # Get destination blob
-            dest_blob = prod_container.get_blob_client(f"model_{wine_type}.pkl")
+            # Upload diretto in production
+            await prod_blob.upload_blob(model_data, overwrite=True)
             
-            # Copy blob
-            dest_blob.start_copy_from_url(source_blob.url)
-            
-            # Delete source blob
-            source_blob.delete_blob()
+            # Elimina la versione in testing
+            await model_blob.delete_blob()
             
             logging.info(f"Modello {wine_type} promosso in production")
             return True
             
-        else:
-            logging.warning(f"Validation failed for {wine_type} model")
-            return False
+        logging.warning(f"Validation failed for {wine_type} model")
+        return False
 
     except Exception as e:
         logging.error(f"Error validating {wine_type} model: {str(e)}")
