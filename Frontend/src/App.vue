@@ -173,6 +173,7 @@ async function uploadDataset() {
     })
     if (!res.ok) throw new Error('Error while uploading file')
 
+    // Passa alla fase training e richiama trainModel
     step.value = 'training'
     await trainModel()
   } catch (e: any) {
@@ -184,33 +185,37 @@ async function uploadDataset() {
 }
 
 async function trainModel() {
+  // Polling su model-status per vedere quando il modello è pronto
   try {
-    const res = await fetch(`http://localhost:8000/train-model?wine_type=${type.value}`, {
-      method: 'POST'
-    })
-    if (!res.ok) throw new Error('Error while training model')
-
     let attempts = 0
     const maxAttempts = 15
+    const pollInterval = 2000
+    const endpoint = `https://winalyzefunc.azurewebsites.net/api/model-status?wine_type=${type.value}`
 
-    const interval = setInterval(async () => {
-      attempts++
-      const statusRes = await fetch(`http://localhost:8000/model-status?wine_type=${type.value}`, {
-        method: 'GET'
-      })
-      const status = await statusRes.json()
-
-      if(status.status === 'ready') {
-        clearInterval(interval)
-        step.value = 'predict'
-      }
-
-      if(attempts >= maxAttempts) {
-        clearInterval(interval)
-        error.value = "Timeout: training took too much time"
-        step.value = 'upload'
-      }
-    }, 2000)
+    return new Promise<void>((resolve, reject) => {
+      const interval = setInterval(async () => {
+        attempts++
+        try {
+          const statusRes = await fetch(endpoint, { method: 'GET' })
+          const status = await statusRes.json()
+          if (status.status === 'ready') {
+            clearInterval(interval)
+            step.value = 'predict'
+            resolve()
+          } else if (attempts >= maxAttempts) {
+            clearInterval(interval)
+            error.value = "Timeout: training took too much time"
+            step.value = 'upload'
+            reject(new Error("Timeout: training took too much time"))
+          }
+        } catch (err: any) {
+          clearInterval(interval)
+          error.value = err.message || 'Error while checking model status'
+          step.value = 'upload'
+          reject(err)
+        }
+      }, pollInterval)
+    })
   } catch (e: any) {
     error.value = e.message || 'Error while training model'
     step.value = 'upload'
