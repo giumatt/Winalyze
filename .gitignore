@@ -24,3 +24,5 @@ Backend/terraform/.terraform.lock.hcl
 .github/workflows/train-and-validate.yml
 backend/functions/.funcignore
 .vscode/
+backend/functions/shared/preprocessing_utils.py
+backend/functions/.env
