@@ -37,19 +37,24 @@ async def main(mytimer: func.TimerRequest,
                     df_raw = await asyncio.to_thread(pd.read_csv, BytesIO(content), sep=";")
                     
                     # Preprocessing e salvataggio in cleaned
-                    df_cleaned = await asyncio.to_thread(
+                    df_cleaned, scaler_bytes = await asyncio.to_thread(
                         preprocess_data,
                         df_raw,
                         wine_type
                     )
                     
                     # Salva direttamente nel container cleaned invece di usare il binding
-                    cleaned_blob = cleaned_container.get_blob_client(f"data_{wine_type}.csv")
+                    cleaned_blob = cleaned_container.get_blob_client(f"cleaned_{wine_type}.csv")
                     await cleaned_blob.upload_blob(
                         df_cleaned.to_csv(index=False).encode(),
                         overwrite=True
                     )
-                    logging.info(f"Dati preprocessati salvati in cleaned per {wine_type}")
+
+                    # Salva lo scaler
+                    scaler_blob = models_container.get_blob_client(f"scaler_{wine_type}.pkl")
+                    await scaler_blob.upload_blob(scaler_bytes, overwrite=True)
+                    
+                    logging.info(f"Dati preprocessati e scaler salvati per {wine_type}")
 
                     # Aggiungi una breve attesa per essere sicuri che il blob sia disponibile
                     await asyncio.sleep(1)
