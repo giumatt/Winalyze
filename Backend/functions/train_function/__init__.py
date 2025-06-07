@@ -124,11 +124,11 @@ async def main(mytimer: func.TimerRequest,
                 logging.error(f"Errore nel controllo dei modelli in produzione: {str(e)}")
 
             try:
-                from model_status import main as model_status
+                from model_status import check_model_status
                 logging.info(f"▶️ Trigger polling per model_status per {wine_type}")
-                asyncio.create_task(model_status(wine_type))
+                asyncio.create_task(check_model_status(wine_type))
             except Exception as e:
-                logging.error(f"Errore nell'avvio asincrono di model_status: {str(e)}")
+                logging.error(f"Errore nell'avvio asincrono di check_model_status: {str(e)}")
 
     except Exception as e:
         logging.error(f"General error in train function: {str(e)}")
