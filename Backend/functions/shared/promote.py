@@ -18,9 +18,12 @@ def trigger_merge_to_alpha():
     }
 
     response = requests.post(url, headers=headers, json=payload)
+    logging.info(f"GitHub API merge response [{response.status_code}]: {response.text}")
     if response.status_code in [200, 201]:
-        logging.info("Merge eseguito correttamente.")
+        logging.info("✅ Merge eseguito correttamente.")
     elif response.status_code == 204:
-        logging.info("Nessun cambiamento da unire. Merge non necessario.")
+        logging.info("ℹ️ Nessun cambiamento da unire. Merge non necessario.")
+    elif response.status_code == 409:
+        logging.warning("⚠️ Merge non effettuato: conflitto o branch identici.")
     else:
         logging.error(f"Merge fallito: {response.status_code} - {response.text}")
