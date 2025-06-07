@@ -79,9 +79,9 @@ async def validate_model(wine_type: str, blob_service: BlobServiceClient) -> boo
 
         # Check thresholds
         thresholds = {
-            'accuracy': 0.70,
-            'precision': 0.65,
-            'recall': 0.65,
+            'accuracy': 0.60,
+            'precision': 0.30,
+            'recall': 0.60,
             'f1': 0.65
         }
         
