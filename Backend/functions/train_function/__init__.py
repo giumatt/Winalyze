@@ -67,7 +67,8 @@ async def main(mytimer: func.TimerRequest,
                             self.name = name
                     
                     mock_blob = MockBlob(f"models-testing/model_{wine_type}-testing.pkl")
-                    await validate_model(mock_blob)
+                    # Passa sia il mock_blob che il blob_service
+                    await validate_model(mock_blob, blob_service)
 
                     logging.info(f"Validazione richiesta per il modello {wine_type}")
 
