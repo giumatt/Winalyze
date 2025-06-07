@@ -112,13 +112,12 @@ async def main(mytimer: func.TimerRequest,
                     logging.error(f"Error processing {blob_name}: {str(e)}")
                     continue
 
-            # ✅ Dopo aver processato entrambi i modelli, controlla se sono validi e già in produzione
             try:
                 prod_container = blob_service.get_container_client("models")
                 existing_models = [b.name async for b in prod_container.list_blobs()]
                 if "model_red.pkl" in existing_models and "model_white.pkl" in existing_models:
                     logging.info("🚀 Entrambi i modelli sono in produzione — trigger merge to alpha")
-                    await asyncio.to_thread(trigger_merge_to_alpha)
+                    trigger_merge_to_alpha()
                 else:
                     logging.info("⏳ Attesa: entrambi i modelli non sono ancora in produzione")
             except Exception as e:

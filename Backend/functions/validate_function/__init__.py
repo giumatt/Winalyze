@@ -43,15 +43,6 @@ async def main(myblob: func.InputStream) -> None:
             source_blob.delete_blob()
                 
             logging.info(f"Model moved to production and renamed for {wine_type} wine")
-            try:
-                existing_models = [b.name for b in prod_container.list_blobs()]
-                if "model_red.pkl" in existing_models and "model_white.pkl" in existing_models:
-                    logging.info("🚀 Both models in production. Triggering promotion to alpha.")
-                    trigger_merge_to_alpha()
-                else:
-                    logging.info("ℹ️ Not all models are present in production. Skipping promotion.")
-            except Exception as e:
-                logging.error(f"Failed to trigger merge to alpha: {str(e)}")
         else:
             logging.warning(f"Model validation failed for {wine_type} wine")
 
