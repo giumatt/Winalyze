@@ -2,7 +2,7 @@ import azure.functions as func
 import logging
 import os
 from azure.storage.blob import BlobServiceClient
-from test.train_validate import validate_model
+from shared.test.train_validate import validate_model
 
 async def main(myblob: func.InputStream) -> None:
     """
