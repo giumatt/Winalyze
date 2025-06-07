@@ -190,7 +190,7 @@ async function trainModel() {
     let attempts = 0
     const maxAttempts = 15
     const pollInterval = 2000
-    const endpoint = `https://winalyzefunc.azurewebsites.net/api/model-status?wine_type=${type.value}`
+    const endpoint = `https://winalyzefunc.azurewebsites.net/api/model_status?wine_type=${type.value}`
 
     return new Promise<void>((resolve, reject) => {
       const interval = setInterval(async () => {
