@@ -19,6 +19,12 @@ async def main(mytimer: func.TimerRequest,
             models_testing_container = blob_service.get_container_client("models-testing")
             models_container = blob_service.get_container_client("models")
 
+            # Verifica se il container raw ha file da processare
+            blobs = [blob async for blob in container_client.list_blobs()]
+            if not blobs:
+                logging.info("Nessun file da processare nel container raw")
+                return
+
             for blob_name in ['uploaded_red.csv', 'uploaded_white.csv']:
                 try:
                     # Carica dati raw
@@ -51,6 +57,18 @@ async def main(mytimer: func.TimerRequest,
                     logging.info(f"Training completato per vino {wine_type}")
 
                     try:
+                        # Verifica se ci sono modelli da validare in models-testing
+                        testing_blobs = [blob async for blob in models_testing_container.list_blobs()]
+                        if not testing_blobs:
+                            logging.info("Nessun modello da validare in models-testing")
+                            continue
+
+                        # Verifica se esiste il modello specifico da validare
+                        model_test_name = f"model_{wine_type}-testing.pkl"
+                        if not any(blob.name == model_test_name for blob in testing_blobs):
+                            logging.info(f"Modello {model_test_name} non trovato in models-testing")
+                            continue
+
                         # Valida il modello
                         validation_result = await validate_model(wine_type, blob_service)
                         if validation_result:
