@@ -124,7 +124,7 @@ async def main(mytimer: func.TimerRequest,
                 logging.error(f"Errore nel controllo dei modelli in produzione: {str(e)}")
 
             try:
-                from functions.model_status import __init__ as model_status
+                from model_status import main as model_status
                 logging.info("▶️ Trigger inizializzato per model_status.main (solo polling per frontend)")
                 asyncio.create_task(model_status.main(None))
             except Exception as e:
