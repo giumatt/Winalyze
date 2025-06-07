@@ -3,13 +3,15 @@ import io
 from sklearn.ensemble import RandomForestClassifier
 import pandas as pd
 from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score, classification_report
 import pickle
 import logging
-from typing import Tuple
+from typing import Tuple, Dict
 import os
 from azure.storage.blob import BlobServiceClient
 
-def preprocess_data(df: pd.DataFrame, wine_type: str) -> pd.DataFrame:
+def preprocess_data(df: pd.DataFrame, wine_type: str) -> Tuple[pd.DataFrame, bytes]:
     """
     Preprocessa il dataset applicando standardizzazione.
     
@@ -18,7 +20,7 @@ def preprocess_data(df: pd.DataFrame, wine_type: str) -> pd.DataFrame:
         wine_type (str): Tipo di vino ('red' o 'white')
         
     Returns:
-        pd.DataFrame: DataFrame preprocessato
+        Tuple[pd.DataFrame, bytes]: (DataFrame preprocessato, scaler serializzato)
     """
     logging.info(f"Inizio preprocessing per vino {wine_type}")
     
@@ -40,19 +42,22 @@ def preprocess_data(df: pd.DataFrame, wine_type: str) -> pd.DataFrame:
         y.reset_index(drop=True)
     ], axis=1)
     
+    # Serializza lo scaler
+    scaler_bytes = pickle.dumps(scaler)
+    
     logging.info(f"Preprocessing completato per vino {wine_type}")
-    return df_cleaned
+    return df_cleaned, scaler_bytes
 
-def train_model(df_cleaned: pd.DataFrame, wine_type: str) -> Tuple[bytes, bytes]:
+def train_model(df_cleaned: pd.DataFrame, wine_type: str) -> bytes:
     """
-    Addestra il modello sui dati preprocessati da cleaned
+    Addestra il modello sui dati già preprocessati
     
     Args:
         df_cleaned (pd.DataFrame): DataFrame già preprocessato da cleaned
         wine_type (str): Tipo di vino ('red' o 'white')
         
     Returns:
-        Tuple[bytes, bytes]: (modello serializzato, scaler serializzato)
+        bytes: modello serializzato
     """
     logging.info(f"Inizio training per vino {wine_type}")
     
@@ -60,9 +65,10 @@ def train_model(df_cleaned: pd.DataFrame, wine_type: str) -> Tuple[bytes, bytes]
     X = df_cleaned.drop('quality', axis=1)
     y = df_cleaned['quality']
     
-    # Standardizzazione
-    scaler = StandardScaler()
-    X_scaled = scaler.fit_transform(X)
+    # Split train/test per valutazione interna
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.2, random_state=42, stratify=y
+    )
     
     # Training
     model = RandomForestClassifier(
@@ -70,14 +76,18 @@ def train_model(df_cleaned: pd.DataFrame, wine_type: str) -> Tuple[bytes, bytes]
         random_state=42,
         class_weight='balanced'
     )
-    model.fit(X_scaled, y)
+    model.fit(X_train, y_train)
+    
+    # Log delle performance
+    y_pred = model.predict(X_test)
+    accuracy = accuracy_score(y_test, y_pred)
+    logging.info(f"Accuracy su test set interno: {accuracy:.4f}")
     
     # Serializzazione
     model_bytes = pickle.dumps(model)
-    scaler_bytes = pickle.dumps(scaler)
     
     logging.info(f"Training completato per vino {wine_type}")
-    return model_bytes, scaler_bytes
+    return model_bytes
 
 def load_model(wine_type: str) -> Tuple[RandomForestClassifier, StandardScaler]:
     """

@@ -68,19 +68,16 @@ async def main(mytimer: func.TimerRequest,
                     )
                     
                     # Training usando i dati da cleaned
-                    model_bytes, scaler_bytes = await asyncio.to_thread(
+                    model_bytes = await asyncio.to_thread(
                         train_model,
                         df_for_training,
                         wine_type
                     )
 
-                    # Salva gli artefatti
+                    # Salva il modello in testing
                     model_blob = models_testing_container.get_blob_client(f"model_{wine_type}-testing.pkl")
                     await model_blob.upload_blob(model_bytes, overwrite=True)
-
-                    scaler_blob = models_container.get_blob_client(f"scaler_{wine_type}.pkl")
-                    await scaler_blob.upload_blob(scaler_bytes, overwrite=True)
-
+                    
                     logging.info(f"Training completato per vino {wine_type}")
 
                     try:
