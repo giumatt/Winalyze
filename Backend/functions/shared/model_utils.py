@@ -4,14 +4,12 @@ from sklearn.ensemble import RandomForestClassifier
 import pandas as pd
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import accuracy_score, classification_report
 import pickle
 import logging
-from typing import Tuple
+from typing import Tuple, Dict
 import os
 from azure.storage.blob import BlobServiceClient
-import json
-import asyncio
 
 def preprocess_data(df: pd.DataFrame, wine_type: str) -> Tuple[pd.DataFrame, bytes]:
     """
@@ -121,26 +119,3 @@ def load_model(wine_type: str) -> Tuple[RandomForestClassifier, StandardScaler]:
     except Exception as e:
         logging.error(f"Errore nel caricamento del modello: {str(e)}")
         raise
-
-async def start_polling_status(wine_type: str, connection_string: str, max_attempts=30, delay=5):
-    blob_service_client = BlobServiceClient.from_connection_string(connection_string)
-    container = blob_service_client.get_container_client("models")
-
-    model_path = f"model_{wine_type}.pkl"
-    scaler_path = f"scaler_{wine_type}.pkl"
-    status_blob = f"status_{wine_type}.json"
-
-    for attempt in range(max_attempts):
-        model_exists = container.get_blob_client(model_path).exists()
-        scaler_exists = container.get_blob_client(scaler_path).exists()
-
-        if model_exists and scaler_exists:
-            content = json.dumps({"status": "ready"})
-            container.upload_blob(name=status_blob, data=content, overwrite=True)
-            logging.info(f"📦 Stato salvato: {status_blob}")
-            return
-        else:
-            logging.info(f"⌛ Polling {attempt+1}/{max_attempts} - modelli non ancora disponibili")
-            await asyncio.sleep(delay)
-
-    logging.warning(f"❌ Timeout: modello {wine_type} non disponibile dopo polling")
