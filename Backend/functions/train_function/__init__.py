@@ -4,7 +4,7 @@ from azure.storage.blob.aio import BlobServiceClient
 import os
 import pandas as pd
 from io import BytesIO
-from shared.model_utils import train_model
+from shared.model_utils import preprocess_data, train_model
 from shared.test.train_validate import validate_model
 import asyncio
 
@@ -16,14 +16,9 @@ async def main(mytimer: func.TimerRequest,
         connection_string = os.environ["AzureWebJobsStorage"]
         async with BlobServiceClient.from_connection_string(connection_string) as blob_service:
             container_client = blob_service.get_container_client("raw")
+            cleaned_container = blob_service.get_container_client("cleaned")
             models_testing_container = blob_service.get_container_client("models-testing")
             models_container = blob_service.get_container_client("models")
-
-            # Verifica se il container raw ha file da processare
-            blobs = [blob async for blob in container_client.list_blobs()]
-            if not blobs:
-                logging.info("Nessun file da processare nel container raw")
-                return
 
             for blob_name in ['uploaded_red.csv', 'uploaded_white.csv']:
                 try:
@@ -36,14 +31,33 @@ async def main(mytimer: func.TimerRequest,
                     wine_type = 'red' if 'red' in blob_name else 'white'
                     logging.info(f"Processing {wine_type} wine dataset")
 
+                    # Carica e preprocessa i dati raw
                     blob_data = await blob_client.download_blob()
                     content = await blob_data.readall()
                     df_raw = await asyncio.to_thread(pd.read_csv, BytesIO(content), sep=";")
                     
-                    # Training unificato
-                    model_bytes, scaler_bytes = await asyncio.to_thread(
-                        train_model, 
+                    # Preprocessing e salvataggio in cleaned
+                    df_cleaned = await asyncio.to_thread(
+                        preprocess_data,
                         df_raw,
+                        wine_type
+                    )
+                    cleanedOutput.set(df_cleaned.to_csv(index=False).encode())
+                    logging.info(f"Dati preprocessati salvati in cleaned per {wine_type}")
+
+                    # Carica i dati da cleaned per il training
+                    cleaned_blob = cleaned_container.get_blob_client(f"data_{wine_type}.csv")
+                    cleaned_data = await cleaned_blob.download_blob()
+                    cleaned_content = await cleaned_data.readall()
+                    df_for_training = await asyncio.to_thread(
+                        pd.read_csv,
+                        BytesIO(cleaned_content)
+                    )
+                    
+                    # Training usando i dati da cleaned
+                    model_bytes, scaler_bytes = await asyncio.to_thread(
+                        train_model,
+                        df_for_training,
                         wine_type
                     )
 

@@ -9,22 +9,52 @@ from typing import Tuple
 import os
 from azure.storage.blob import BlobServiceClient
 
-def train_model(df: pd.DataFrame, wine_type: str) -> Tuple[bytes, bytes]:
+def preprocess_data(df: pd.DataFrame, wine_type: str) -> pd.DataFrame:
     """
-    Preprocessa i dati, addestra il modello e restituisce modello e scaler serializzati
+    Preprocessa il dataset applicando standardizzazione.
     
     Args:
         df (pd.DataFrame): DataFrame raw con i dati del vino
         wine_type (str): Tipo di vino ('red' o 'white')
         
     Returns:
-        Tuple[bytes, bytes]: (modello serializzato, scaler serializzato)
+        pd.DataFrame: DataFrame preprocessato
     """
-    logging.info(f"Inizio preprocessing e training per vino {wine_type}")
+    logging.info(f"Inizio preprocessing per vino {wine_type}")
     
     # Preprocessing
     df_cleaned = df.copy()
     df_cleaned.dropna(inplace=True)
+    
+    # Separazione features e target
+    X = df_cleaned.drop('quality', axis=1)
+    y = df_cleaned['quality']
+    
+    # Standardizzazione
+    scaler = StandardScaler()
+    X_scaled = scaler.fit_transform(X)
+    
+    # Ricostruzione DataFrame
+    df_cleaned = pd.concat([
+        pd.DataFrame(X_scaled, columns=X.columns),
+        y.reset_index(drop=True)
+    ], axis=1)
+    
+    logging.info(f"Preprocessing completato per vino {wine_type}")
+    return df_cleaned
+
+def train_model(df_cleaned: pd.DataFrame, wine_type: str) -> Tuple[bytes, bytes]:
+    """
+    Addestra il modello sui dati preprocessati da cleaned
+    
+    Args:
+        df_cleaned (pd.DataFrame): DataFrame già preprocessato da cleaned
+        wine_type (str): Tipo di vino ('red' o 'white')
+        
+    Returns:
+        Tuple[bytes, bytes]: (modello serializzato, scaler serializzato)
+    """
+    logging.info(f"Inizio training per vino {wine_type}")
     
     # Separazione features e target
     X = df_cleaned.drop('quality', axis=1)
