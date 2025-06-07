@@ -102,7 +102,7 @@ const type = ref<'red' | 'white'>('red')
 
 onMounted(async () => {
   try {
-    const res = await fetch(`http://localhost:8000/model-status?wine_type=${type.value}`)
+    const res = await fetch(`https://winalyzefunc.azurewebsites.net/api/model_status?wine_type=${type.value}`)
     if(res.ok) {
       const status = await res.json()
       if (status.status === 'ready') {
