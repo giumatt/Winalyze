@@ -18,6 +18,9 @@ def trigger_merge_to_alpha():
     }
 
     response = requests.post(url, headers=headers, json=payload)
-    if response.status_code not in [200, 201]:
-        raise Exception(f"GitHub merge failed: {response.status_code} - {response.text}")
-    logging.info("✅ Merge from testing to alpha executed.")
+    if response.status_code in [200, 201]:
+        logging.info("Merge eseguito correttamente.")
+    elif response.status_code == 204:
+        logging.info("Nessun cambiamento da unire. Merge non necessario.")
+    else:
+        logging.error(f"Merge fallito: {response.status_code} - {response.text}")
