@@ -10,7 +10,7 @@ async def check_model_status(wine_type: str) -> dict:
     blob_service = BlobServiceClient.from_connection_string(connection_string)
     container = blob_service.get_container_client("models")
 
-    existing_blobs = [b.name async for b in container.list_blobs()]
+    existing_blobs = [b.name for b in container.list_blobs()]
     status = "ready" if f"model_{wine_type}.pkl" in existing_blobs else "training"
     return {wine_type: status}
 
