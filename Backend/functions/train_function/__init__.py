@@ -7,6 +7,7 @@ from io import BytesIO
 from shared.model_utils import preprocess_data, train_model
 from shared.test.train_validate import validate_model
 from shared.promote import trigger_merge_to_alpha
+from shared.model_utils import start_polling_status
 import asyncio
 
 async def main(mytimer: func.TimerRequest,
@@ -83,6 +84,9 @@ async def main(mytimer: func.TimerRequest,
                     # Salva il modello in testing
                     model_blob = models_testing_container.get_blob_client(f"model_{wine_type}-testing.pkl")
                     await model_blob.upload_blob(model_bytes, overwrite=True)
+                    
+                    # Avvia polling asincrono per status
+                    asyncio.create_task(start_polling_status(wine_type, connection_string))
                     
                     logging.info(f"Training completato per vino {wine_type}")
 
