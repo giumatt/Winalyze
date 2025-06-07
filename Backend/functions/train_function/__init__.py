@@ -61,16 +61,12 @@ async def main(mytimer: func.TimerRequest,
 
                     logging.info(f"Training completato per vino {wine_type}")
 
-                    # Chiama validate_function
-                    class MockBlob:
-                        def __init__(self, name):
-                            self.name = name
-                    
-                    mock_blob = MockBlob(f"models-testing/model_{wine_type}-testing.pkl")
-                    # Passa sia il mock_blob che il blob_service
-                    await validate_model(mock_blob, blob_service)
-
-                    logging.info(f"Validazione richiesta per il modello {wine_type}")
+                    # Valida il modello
+                    validation_result = await validate_model(wine_type, blob_service)
+                    if validation_result:
+                        logging.info(f"Validazione superata per il modello {wine_type}")
+                    else:
+                        logging.warning(f"Validazione fallita per il modello {wine_type}")
 
                 except Exception as e:
                     logging.error(f"Error processing {blob_name}: {str(e)}")

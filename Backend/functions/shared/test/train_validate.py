@@ -25,16 +25,16 @@ def get_metrics(y_true: pd.Series, y_pred: pd.Series) -> Dict[str, float]:
         'f1': f1_score(y_true, y_pred, average='weighted')
     }
 
-def validate_model(wine_type: str, blob_service: BlobServiceClient) -> bool:
+async def validate_model(wine_type: str, blob_service: BlobServiceClient) -> bool:
     """
-    Validate model against test dataset.
+    Valida il modello e lo sposta in production se passa i test
     
     Args:
-        wine_type: Type of wine model to validate ('red' or 'white')
-        blob_service: BlobServiceClient instance
-        
+        wine_type: Tipo di vino ('red' o 'white')
+        blob_service: Client per accedere al blob storage
+    
     Returns:
-        bool: True if validation passes, False otherwise
+        bool: True se la validazione è riuscita, False altrimenti
     """
     try:
         logging.info(f"Starting validation for {wine_type} model")
@@ -87,11 +87,29 @@ def validate_model(wine_type: str, blob_service: BlobServiceClient) -> bool:
 
         if validation_passed:
             logging.info(f"Validation successful for {wine_type} model")
+            # Sposta il modello da testing a production
+            test_container = blob_service.get_container_client("models-testing")
+            prod_container = blob_service.get_container_client("models")
+            
+            # Get source blob
+            source_blob = test_container.get_blob_client(f"model_{wine_type}-testing.pkl")
+            
+            # Get destination blob
+            dest_blob = prod_container.get_blob_client(f"model_{wine_type}.pkl")
+            
+            # Copy blob
+            dest_blob.start_copy_from_url(source_blob.url)
+            
+            # Delete source blob
+            source_blob.delete_blob()
+            
+            logging.info(f"Modello {wine_type} promosso in production")
+            return True
+            
         else:
             logging.warning(f"Validation failed for {wine_type} model")
-            
-        return validation_passed
+            return False
 
     except Exception as e:
         logging.error(f"Error validating {wine_type} model: {str(e)}")
-        raise
+        return False
