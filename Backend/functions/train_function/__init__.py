@@ -6,6 +6,7 @@ import pandas as pd
 from io import BytesIO
 from shared.model_utils import preprocess_data, train_model
 from shared.test.train_validate import validate_model
+from shared.promote import trigger_merge_to_alpha
 import asyncio
 
 async def main(mytimer: func.TimerRequest,
@@ -106,10 +107,22 @@ async def main(mytimer: func.TimerRequest,
                             logging.warning(f"Validazione fallita per il modello {wine_type}")
                     except Exception as e:
                         logging.error(f"Errore durante la validazione del modello {wine_type}: {str(e)}")
-
+                    
                 except Exception as e:
                     logging.error(f"Error processing {blob_name}: {str(e)}")
                     continue
+
+            # ✅ Dopo aver processato entrambi i modelli, controlla se sono validi e già in produzione
+            try:
+                prod_container = blob_service.get_container_client("models")
+                existing_models = [b.name async for b in prod_container.list_blobs()]
+                if "model_red.pkl" in existing_models and "model_white.pkl" in existing_models:
+                    logging.info("🚀 Entrambi i modelli sono in produzione — trigger merge to alpha")
+                    await asyncio.to_thread(trigger_merge_to_alpha)
+                else:
+                    logging.info("⏳ Attesa: entrambi i modelli non sono ancora in produzione")
+            except Exception as e:
+                logging.error(f"Errore nel controllo dei modelli in produzione: {str(e)}")
 
     except Exception as e:
         logging.error(f"General error in train function: {str(e)}")
