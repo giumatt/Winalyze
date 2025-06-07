@@ -125,8 +125,8 @@ async def main(mytimer: func.TimerRequest,
 
             try:
                 from model_status import main as model_status
-                logging.info("▶️ Trigger inizializzato per model_status.main (solo polling per frontend)")
-                asyncio.create_task(model_status(None))
+                logging.info(f"▶️ Trigger polling per model_status per {wine_type}")
+                asyncio.create_task(model_status(wine_type))
             except Exception as e:
                 logging.error(f"Errore nell'avvio asincrono di model_status: {str(e)}")
 
