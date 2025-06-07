@@ -42,11 +42,24 @@ async def main(mytimer: func.TimerRequest,
                         df_raw,
                         wine_type
                     )
-                    cleanedOutput.set(df_cleaned.to_csv(index=False).encode())
+                    
+                    # Salva direttamente nel container cleaned invece di usare il binding
+                    cleaned_blob = cleaned_container.get_blob_client(f"data_{wine_type}.csv")
+                    await cleaned_blob.upload_blob(
+                        df_cleaned.to_csv(index=False).encode(),
+                        overwrite=True
+                    )
                     logging.info(f"Dati preprocessati salvati in cleaned per {wine_type}")
 
+                    # Aggiungi una breve attesa per essere sicuri che il blob sia disponibile
+                    await asyncio.sleep(1)
+
+                    # Verifica che il blob esista prima di procedere
+                    if not await cleaned_blob.exists():
+                        logging.error(f"Errore: il file cleaned per {wine_type} non è stato salvato correttamente")
+                        continue
+
                     # Carica i dati da cleaned per il training
-                    cleaned_blob = cleaned_container.get_blob_client(f"data_{wine_type}.csv")
                     cleaned_data = await cleaned_blob.download_blob()
                     cleaned_content = await cleaned_data.readall()
                     df_for_training = await asyncio.to_thread(
