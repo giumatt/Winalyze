@@ -6,7 +6,7 @@ import pandas as pd
 from io import BytesIO
 from shared.preprocessing_utils import preprocess
 from shared.model_utils import train_model
-from test.train_validate import validate_model
+from shared.test.train_validate import validate_model
 import asyncio
 
 async def main(mytimer: func.TimerRequest,
