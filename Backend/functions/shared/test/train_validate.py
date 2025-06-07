@@ -67,7 +67,7 @@ async def validate_model(wine_type: str, blob_service: BlobServiceClient) -> boo
         y = df["quality"]
 
         # Preprocess test data
-        X_scaled = scaler.transform(X)
+        X_scaled = scaler.fit_transform(X)
         
         # Make predictions and evaluate
         y_pred = model.predict(X_scaled)
