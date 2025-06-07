@@ -2,10 +2,10 @@ import pandas as pd
 import joblib
 import io
 import os
-import logging
 from typing import Dict
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
-from azure.storage.blob import BlobServiceClient
+from azure.storage.blob.aio import BlobServiceClient
+import logging
 
 def get_metrics(y_true: pd.Series, y_pred: pd.Series) -> Dict[str, float]:
     """
