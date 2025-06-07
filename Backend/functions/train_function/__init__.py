@@ -7,7 +7,6 @@ from io import BytesIO
 from shared.model_utils import preprocess_data, train_model
 from shared.test.train_validate import validate_model
 from shared.promote import trigger_merge_to_alpha
-from shared.model_utils import start_polling_status
 import asyncio
 
 async def main(mytimer: func.TimerRequest,
@@ -85,9 +84,6 @@ async def main(mytimer: func.TimerRequest,
                     model_blob = models_testing_container.get_blob_client(f"model_{wine_type}-testing.pkl")
                     await model_blob.upload_blob(model_bytes, overwrite=True)
                     
-                    # Avvia polling asincrono per status
-                    asyncio.create_task(start_polling_status(wine_type, connection_string))
-                    
                     logging.info(f"Training completato per vino {wine_type}")
 
                     try:
@@ -126,6 +122,13 @@ async def main(mytimer: func.TimerRequest,
                     logging.info("⏳ Attesa: entrambi i modelli non sono ancora in produzione")
             except Exception as e:
                 logging.error(f"Errore nel controllo dei modelli in produzione: {str(e)}")
+
+            try:
+                from functions.model_status import __init__ as model_status
+                logging.info("▶️ Trigger inizializzato per model_status.main (solo polling per frontend)")
+                asyncio.create_task(model_status.main(None))
+            except Exception as e:
+                logging.error(f"Errore nell'avvio asincrono di model_status: {str(e)}")
 
     except Exception as e:
         logging.error(f"General error in train function: {str(e)}")
