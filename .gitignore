@@ -21,9 +21,13 @@ Backend/src/Old versions
 Backend/terraform/.terraform
 Backend/terraform/.terraform.lock.hcl
 .github/workflows/deploy-infrastructure.yml
+<<<<<<< HEAD
 .github/workflows/promote-production.yml
 backend/functions/.funcignore
 .vscode/
 Backend/functions/promote
 Backend/src
 Backend/functions/shared/preprocessing_utils.py
+=======
+.github/workflows/train-and-validate.yml
+>>>>>>> e10ce7d742a238032ade0c650500f5e00d92326b
