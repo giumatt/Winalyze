@@ -6,13 +6,6 @@
       "type": "timerTrigger",
       "direction": "in",
       "schedule": "0 */1 * * * *"
-    },
-    {
-      "name": "cleanedOutput",
-      "type": "blob",
-      "direction": "out",
-      "path": "cleaned/data_{wine_type}.csv",
-      "connection": "AzureWebJobsStorage"
     }
   ]
 }
