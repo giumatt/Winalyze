@@ -212,7 +212,6 @@ async function trainModel() {
           const status = await statusRes.json()
           console.log(`📋 Status response:`, status)
           
-          // Gestisci entrambi i formati di risposta per retrocompatibilità
           const modelStatus = status.status || status[type.value]
           console.log(`Model status: ${modelStatus}`)
           
@@ -261,13 +260,14 @@ async function handlePredictSubmit() {
   loading.value = true
   try {
     const cleanedValues: Record<string, number> = {}
-    for(const key in values.value) {
-      const val = values.value[key]
-      if (typeof val === 'number' && !isNaN(val)) {
-        cleanedValues[key] = val
-      } else {
-        throw new Error(`Missing or invalid input for '${key}'`)
+
+    // Verifica che tutte le features richieste siano presenti
+    for (const feature of features) {
+      const val = values.value[feature];
+      if (val === undefined || typeof val !== 'number' || isNaN(val)) {
+        throw new Error(`Missing or invalid input for '${feature}'`);  // Lancia errore se una feature è mancante o invalida
       }
+      cleanedValues[feature] = val;
     }
 
     const response = await fetch('https://winalyzefunc.azurewebsites.net/api/infer_function', {
@@ -275,10 +275,12 @@ async function handlePredictSubmit() {
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({ type: type.value, input: cleanedValues })
     })
-    const data = await response.json()
+    
+    const data = await response.json();
     if(!response.ok) throw new Error(data.detail || 'API error')
 
     prediction.value = data.prediction
+
   } catch (err: any) {
     error.value = err.message || 'Unexpected error'
   } finally {
