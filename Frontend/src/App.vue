@@ -187,8 +187,8 @@ async function uploadDataset() {
 async function trainModel() {
   try {
     let attempts = 0
-    const maxAttempts = 30  // Aumentato il numero di tentativi
-    const pollInterval = 3000  // Aumentato l'intervallo a 3 secondi
+    const maxAttempts = 60  // Aumentato il numero di tentativi
+    const pollInterval = 5000  // Aumentato l'intervallo a 5 secondi
     const endpoint = `https://winalyzefunc.azurewebsites.net/api/model_status?wine_type=${type.value}`
 
     console.log(`Starting polling for ${type.value} wine model...`)
@@ -217,9 +217,9 @@ async function trainModel() {
           
           if (modelStatus === 'ready') {
             console.log(`✅ Model ${type.value} is ready!`)
-            clearInterval(interval)
+            clearInterval(interval)  // Ferma il polling
             modelReady.value = true
-            step.value = 'predict'
+            step.value = 'predict'  // Passa alla fase di predizione
             resolve()
           } else if (attempts >= maxAttempts) {
             console.error(`Timeout: training took too long (${attempts} attempts)`)
@@ -245,7 +245,7 @@ async function trainModel() {
         error.value = "Training timeout exceeded"
         step.value = 'upload'
         reject(new Error("Training timeout exceeded"))
-      }, maxAttempts * pollInterval + 10000) // 10 secondi extra di buffer
+      }, maxAttempts * pollInterval + 15000) // Aumentato il buffer a 15 secondi
     })
   } catch (e: any) {
     console.error(`Error in trainModel:`, e)
