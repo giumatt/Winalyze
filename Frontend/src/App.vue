@@ -38,15 +38,6 @@
       <img src="/assets/warning-icon.png" alt="warning" />
       <div class="training-info">
         <div class="training-title">Model training in progress...</div>
-        <div class="training-details">
-          <div>Wine type: {{ type }}</div>
-          <div v-if="trainingAttempts > 0">
-            Attempt {{ trainingAttempts }} of {{ maxTrainingAttempts }}
-          </div>
-          <div class="training-time">
-            Elapsed: {{ formatTrainingTime(trainingStartTime) }}
-          </div>
-        </div>
       </div>
     </div>
 
