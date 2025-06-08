@@ -332,17 +332,17 @@ body, html, #app {
   padding: 2rem; /* Aggiunto padding per evitare che il contenuto tocchi i bordi */
 }
 
+/* --- MODIFICHE ALLA TOP BAR --- */
 .top-bar {
   position: fixed;
   top: 2rem;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 95%;  /* Aumentato da 80% a 95% */
-  max-width: 1200px;  /* Aumentato da 600px a 1200px */
+  left: 2rem;  /* Spaziatura dal bordo sinistro */
+  right: 2rem; /* Spaziatura dal bordo destro */
   display: flex;
-  justify-content: space-between;
+  justify-content: space-between; /* Spinge gli elementi ai lati */
   align-items: center;
   z-index: 10;
+  /* Rimosso max-width, width, transform e left:50% per permettere l'allargamento */
 }
 
 .branding {
@@ -376,6 +376,16 @@ body, html, #app {
   left: 50%; /* Posiziona al centro orizzontalmente */
   transform: translate(-50%, -50%); /* Centra perfettamente */
   transition: background 0.5s ease, color 0.5s ease, backdrop-filter 0.5s ease;
+}
+
+/* --- NUOVA REGOLA PER LA SEZIONE PREDICT --- */
+.predict-section .glass-card {
+  top: 120px; /* Distanza dall'alto, sotto la top-bar */
+  bottom: 40px; /* Distanza dal basso */
+  height: auto; /* L'altezza diventa dinamica */
+  transform: translateX(-50%); /* Mantiene solo il centraggio orizzontale */
+  overflow-y: auto; /* Aggiunge scroll se il contenuto è troppo */
+  padding: 1.5rem 2rem; /* Adegua il padding per la nuova altezza */
 }
 
 .page-title {
@@ -707,14 +717,33 @@ button:disabled {
     width: 90%;
     padding: 1.5rem;
   }
+  
+  /* --- Adattamenti per la nuova top-bar --- */
+  .top-bar {
+    left: 1rem;
+    right: 1rem;
+    flex-direction: row; /* Mantiene la riga anche su mobile */
+    gap: 0;
+  }
+  
+  .top-button {
+    font-size: 1.2rem; /* Riduci un po' i pulsanti */
+    padding: 0.5rem;
+  }
+  
+  .branding {
+    font-size: 1.2rem; /* Riduci il logo */
+  }
+  
+  /* --- Adattamenti per la card in predict view --- */
+  .predict-section .glass-card {
+    top: 100px;
+    bottom: 20px;
+    width: 90%;
+  }
 
   .form-grid {
     grid-template-columns: 1fr;
-  }
-
-  .top-bar {
-    flex-direction: column;
-    gap: 1rem;
   }
 
   .action-buttons {
