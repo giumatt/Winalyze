@@ -9,6 +9,17 @@ from shared.test.train_validate import validate_model
 from shared.promote import trigger_merge_to_alpha
 import asyncio
 
+app = func.FunctionApp()
+
+@app.function_name(name="BlobTrigger1")
+@app.blob_trigger(arg_name="myblob", 
+                  path="raw",
+                  connection="AzureWebJobsStorage")
+def test_function(myblob: func.InputStream):
+   logging.info(f"Python blob trigger function processed blob \n"
+                f"Name: {myblob.name}\n"
+                f"Blob Size: {myblob.length} bytes")
+
 async def main(mytimer: func.TimerRequest,
               cleanedOutput: func.Out[bytes]) -> None:
     logging.info('Train function triggered by timer')
