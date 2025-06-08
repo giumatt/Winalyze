@@ -36,7 +36,18 @@
 
     <div v-else-if="step === 'training'" class="training-alert">
       <img src="/assets/warning-icon.png" alt="warning" />
-      <span>Model training in progress...</span>
+      <div class="training-info">
+        <div class="training-title">Model training in progress...</div>
+        <div class="training-details">
+          <div>Wine type: {{ type }}</div>
+          <div v-if="trainingAttempts > 0">
+            Attempt {{ trainingAttempts }} of {{ maxTrainingAttempts }}
+          </div>
+          <div class="training-time">
+            Elapsed: {{ formatTrainingTime(trainingStartTime) }}
+          </div>
+        </div>
+      </div>
     </div>
 
     <div v-else-if="step === 'predict'" class="predict-section">
@@ -100,17 +111,78 @@ const modelReady = ref(false)
 
 const type = ref<'red' | 'white'>('red')
 
-onMounted(async () => {
+// Nuove variabili per il tracking del training
+const trainingAttempts = ref(0)
+const maxTrainingAttempts = ref(120)
+const trainingStartTime = ref<number | null>(null)
+
+// Funzioni per la persistenza dello stato
+function saveTrainingState() {
+  const state = {
+    isTraining: step.value === 'training',
+    wineType: type.value,
+    startTime: Date.now()
+  }
+  localStorage.setItem('winalyze_training_state', JSON.stringify(state))
+}
+
+function loadTrainingState() {
+  const saved = localStorage.getItem('winalyze_training_state')
+  if (!saved) return null
+  
   try {
-    const res = await fetch(`https://winalyzefunc.azurewebsites.net/api/model_status?wine_type=${type.value}`)
-    if(res.ok) {
-      const status = await res.json()
-      if (status.status === 'ready') {
-        modelReady.value = true
-      }
+    const state = JSON.parse(saved)
+    // Se è passata più di 1 ora, considera il training fallito
+    if (Date.now() - state.startTime > 60 * 60 * 1000) {
+      localStorage.removeItem('winalyze_training_state')
+      return null
     }
-  } catch (e) {
-    // Ignore, just don't show the button
+    return state
+  } catch {
+    localStorage.removeItem('winalyze_training_state')
+    return null
+  }
+}
+
+function clearTrainingState() {
+  localStorage.removeItem('winalyze_training_state')
+}
+
+// Funzione per formattare il tempo trascorso
+function formatTrainingTime(startTime: number | null): string {
+  if (!startTime) return '0s'
+  const elapsed = Math.floor((Date.now() - startTime) / 1000)
+  const minutes = Math.floor(elapsed / 60)
+  const seconds = elapsed % 60
+  return `${minutes}m ${seconds}s`
+}
+
+onMounted(async () => {
+  // Controlla se c'era un training in corso
+  const trainingState = loadTrainingState()
+  if (trainingState && trainingState.isTraining) {
+    type.value = trainingState.wineType
+    step.value = 'training'
+    // Riprendi il polling
+    try {
+      await trainModel()
+      clearTrainingState()
+    } catch (e) {
+      clearTrainingState()
+    }
+  } else {
+    // Controllo normale dello stato del modello
+    try {
+      const res = await fetch(`https://winalyzefunc.azurewebsites.net/api/model_status?wine_type=${type.value}`)
+      if(res.ok) {
+        const status = await res.json()
+        if (status.status === 'ready') {
+          modelReady.value = true
+        }
+      }
+    } catch (e) {
+      // Ignore, just don't show the button
+    }
   }
 })
 
@@ -126,6 +198,10 @@ function goHome() {
   file.value = null
   step.value = 'upload'
   loading.value = false
+  // Pulisci anche lo stato del training quando vai in home
+  clearTrainingState()
+  trainingStartTime.value = null
+  trainingAttempts.value = 0
 }
 
 function sanitizeId(feature: string): string {
@@ -137,6 +213,7 @@ function triggerFileSelect() {
     fileInput.value.click();
   }
 }
+
 function handleInput(feature: string, event: Event) {
   const input = (event.target as HTMLInputElement).value
   const normalized = input.replace(',', '.')
@@ -173,10 +250,14 @@ async function uploadDataset() {
     })
     if (!res.ok) throw new Error('Error while uploading file')
 
-    // Passa alla fase training e richiama trainModel
+    // Salva lo stato prima di iniziare il training
     step.value = 'training'
+    saveTrainingState()
+    
     await trainModel()
+    clearTrainingState() // Pulisci lo stato quando finisce con successo
   } catch (e: any) {
+    clearTrainingState() // Pulisci lo stato in caso di errore
     error.value = e.message || 'Error while uploading file'
     step.value = 'upload'
   } finally {
@@ -185,10 +266,13 @@ async function uploadDataset() {
 }
 
 async function trainModel() {
+  trainingStartTime.value = Date.now()
+  trainingAttempts.value = 0
+  
   try {
     let attempts = 0
-    const maxAttempts = 60  // Aumentato il numero di tentativi
-    const pollInterval = 5000  // Aumentato l'intervallo a 5 secondi
+    const maxAttempts = 120  // 10 minuti totali
+    const pollInterval = 5000  // 5 secondi
     const endpoint = `https://winalyzefunc.azurewebsites.net/api/model_status?wine_type=${type.value}`
 
     console.log(`Starting polling for ${type.value} wine model...`)
@@ -196,17 +280,30 @@ async function trainModel() {
     return new Promise<void>((resolve, reject) => {
       const interval = setInterval(async () => {
         attempts++
+        trainingAttempts.value = attempts // Aggiorna il contatore reattivo
+        
         console.log(`Polling attempt ${attempts}/${maxAttempts} for ${type.value} model`)
         
         try {
-          const statusRes = await fetch(endpoint, { method: 'GET' })
+          const statusRes = await fetch(endpoint, { 
+            method: 'GET',
+            // Timeout per singole richieste per evitare richieste bloccate
+            signal: AbortSignal.timeout(10000) // 10 secondi timeout per richiesta
+          })
+          
           console.log(`📡 Response status: ${statusRes.status}`)
           
           if (!statusRes.ok) {
-            console.error(`HTTP error: ${statusRes.status} ${statusRes.statusText}`)
-            const errorText = await statusRes.text()
-            console.error(`Error response: ${errorText}`)
-            throw new Error(`HTTP ${statusRes.status}: ${statusRes.statusText}`)
+            console.warn(`HTTP error: ${statusRes.status} ${statusRes.statusText}`)
+            // Non interrompere per errori HTTP temporanei, continua il polling
+            if (attempts >= maxAttempts) {
+              clearInterval(interval)
+              error.value = `Training timeout: max attempts reached (${maxAttempts})`
+              step.value = 'upload'
+              trainingStartTime.value = null
+              reject(new Error(`Training timeout: max attempts reached`))
+            }
+            return // Continua il polling
           }
 
           const status = await statusRes.json()
@@ -217,40 +314,53 @@ async function trainModel() {
           
           if (modelStatus === 'ready') {
             console.log(`✅ Model ${type.value} is ready!`)
-            clearInterval(interval)  // Ferma il polling
+            clearInterval(interval)
             modelReady.value = true
-            step.value = 'predict'  // Passa alla fase di predizione
-            resolve()
+            step.value = 'predict'
+            trainingStartTime.value = null // Reset del timer
+            resolve() // Il polling si ferma qui definitivamente
           } else if (attempts >= maxAttempts) {
             console.error(`Timeout: training took too long (${attempts} attempts)`)
             clearInterval(interval)
-            error.value = "Timeout: training took too much time"
+            error.value = `Training timeout: exceeded ${maxAttempts} attempts (${(maxAttempts * pollInterval) / 60000} minutes)`
             step.value = 'upload'
-            reject(new Error("Timeout: training took too much time"))
+            trainingStartTime.value = null
+            reject(new Error("Training timeout exceeded"))
           } else {
             console.log(`Model still training... (attempt ${attempts}/${maxAttempts})`)
           }
         } catch (err: any) {
-          console.error(`Error during polling attempt ${attempts}:`, err)
+          console.warn(`Error during polling attempt ${attempts}:`, err.message)
+          
+          // Se è un errore di rete/timeout, continua il polling invece di fermarsi
+          if (err.name === 'AbortError' || err.name === 'TimeoutError' || err.message.includes('fetch')) {
+            console.log('Network error, continuing polling...')
+            if (attempts >= maxAttempts) {
+              clearInterval(interval)
+              error.value = 'Training timeout: network issues prevented status check'
+              step.value = 'upload'
+              trainingStartTime.value = null
+              reject(new Error('Training timeout: network issues'))
+            }
+            return // Continua il polling
+          }
+          
+          // Solo per errori critici, ferma il polling
+          console.error(`Critical error during polling:`, err)
           clearInterval(interval)
           error.value = err.message || 'Error while checking model status'
           step.value = 'upload'
+          trainingStartTime.value = null
           reject(err)
         }
       }, pollInterval)
-      
-      // Timeout di sicurezza
-      setTimeout(() => {
-        clearInterval(interval)
-        error.value = "Training timeout exceeded"
-        step.value = 'upload'
-        reject(new Error("Training timeout exceeded"))
-      }, maxAttempts * pollInterval + 15000) // Aumentato il buffer a 15 secondi
     })
   } catch (e: any) {
     console.error(`Error in trainModel:`, e)
     error.value = e.message || 'Error while training model'
     step.value = 'upload'
+    trainingStartTime.value = null
+    throw e
   }
 }
 
@@ -303,7 +413,7 @@ async function handlePredictSubmit() {
 }
 
 html, body, #app, .glass-card, .form-group input {
-  transition: all 0.8s ease; /* Aumentata la durata da 0.5s a 0.8s */
+  transition: all 0.8s ease;
 }
 
 body, html, #app {
@@ -315,45 +425,43 @@ body, html, #app {
   background-size: cover;
   background-position: center;
   color: white;
-  font-size: 16px; /* Aumentato il font base */
+  font-size: 16px;
 }
 
 .main-wrapper {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center; /* Assicura il centramento verticale */
+  justify-content: center;
   text-align: center;
   position: relative;
   max-width: 800px;
   margin: 0 auto;
   width: 100%;
-  min-height: 100vh; /* Cambiato da height a min-height */
-  padding: 2rem; /* Aggiunto padding per evitare che il contenuto tocchi i bordi */
+  min-height: 100vh;
+  padding: 2rem;
 }
 
-/* --- MODIFICHE ALLA TOP BAR --- */
 .top-bar {
   position: fixed;
   top: 2rem;
-  left: 2rem;  /* Spaziatura dal bordo sinistro */
-  right: 2rem; /* Spaziatura dal bordo destro */
+  left: 2rem;
+  right: 2rem;
   display: flex;
-  justify-content: space-between; /* Spinge gli elementi ai lati */
+  justify-content: space-between;
   align-items: center;
   z-index: 10;
-  /* Rimosso max-width, width, transform e left:50% per permettere l'allargamento */
 }
 
 .branding {
-  font-size: 1.4rem; /* Aggiunto font-size */
+  font-size: 1.4rem;
   font-weight: bold;
   cursor: pointer;
   padding: 0.5rem;
 }
 
 .section-title {
-  font-size: 1.4rem; /* Aggiunto font-size */
+  font-size: 1.4rem;
   opacity: 0.8;
   cursor: pointer;
   padding: 0.5rem;
@@ -363,35 +471,34 @@ body, html, #app {
   background: rgba(255, 255, 255, 0.2);
   margin: 0 auto;
   border-radius: 1rem;
-  padding: 2rem; /* Ridotto da 2.5rem a 2rem */
+  padding: 2rem;
   backdrop-filter: blur(15px);
-  width: 700px; /* Aumentato per accomodare le due colonne */
+  width: 700px;
   display: flex;
   flex-direction: column;
-  gap: 1rem; /* Ridotto da 1.5rem a 1rem */
+  gap: 1rem;
   align-items: center;
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-  position: absolute; /* Aggiunto position absolute */
-  top: 50%; /* Posiziona al centro verticalmente */
-  left: 50%; /* Posiziona al centro orizzontalmente */
-  transform: translate(-50%, -50%); /* Centra perfettamente */
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   transition: background 0.5s ease, color 0.5s ease, backdrop-filter 0.5s ease;
 }
 
-/* --- NUOVA REGOLA PER LA SEZIONE PREDICT --- */
 .predict-section .glass-card {
-  top: 120px; /* Distanza dall'alto, sotto la top-bar */
-  bottom: 40px; /* Distanza dal basso */
-  height: auto; /* L'altezza diventa dinamica */
-  transform: translateX(-50%); /* Mantiene solo il centraggio orizzontale */
-  overflow-y: auto; /* Aggiunge scroll se il contenuto è troppo */
-  padding: 1.5rem 2rem; /* Adegua il padding per la nuova altezza */
+  top: 120px;
+  bottom: 40px;
+  height: auto;
+  transform: translateX(-50%);
+  overflow-y: auto;
+  padding: 1.5rem 2rem;
 }
 
 .page-title {
-  font-size: 2.2rem; /* Aumentato da 1.8rem */
+  font-size: 2.2rem;
   font-weight: bold;
-  margin-bottom: 1rem; /* Ridotto da 1.5rem a 1rem */
+  margin-bottom: 1rem;
 }
 
 .upload-controls {
@@ -417,27 +524,27 @@ body, html, #app {
 .form-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 0.75rem 2rem; /* Ridotto il gap verticale da 1.25rem a 0.75rem */
+  gap: 0.75rem 2rem;
   width: 100%;
-  margin: 0.5rem 0; /* Ridotto il margine da 1rem a 0.5rem */
+  margin: 0.5rem 0;
   text-align: left;
 }
 
 .form-group {
   display: flex;
   flex-direction: column;
-  margin-bottom: 0; /* Rimosso il margin-bottom */
+  margin-bottom: 0;
 }
 
 .form-group label {
   font-weight: 500;
-  margin-bottom: 0.25rem; /* Ridotto da 0.5rem a 0.25rem */
+  margin-bottom: 0.25rem;
   font-size: 1.1rem;
   color: rgba(255, 255, 255, 0.9);
 }
 
 .form-group input {
-  padding: 0.5rem 1rem; /* Ridotto il padding verticale da 0.75rem a 0.5rem */
+  padding: 0.5rem 1rem;
   border: 1.5px solid rgba(255, 255, 255, 0.2);
   border-radius: 8px;
   font-size: 1.1rem;
@@ -482,12 +589,12 @@ body, html, #app {
 }
 
 .btn-dark, .btn-yellow {
-  padding: 0.9rem 2rem; /* Aumentato padding */
+  padding: 0.9rem 2rem;
   border-radius: 999px;
   border: none;
   cursor: pointer;
   font-weight: 600;
-  font-size: 1.1rem; /* Aggiunto font-size */
+  font-size: 1.1rem;
 }
 
 .btn-predict {
@@ -507,29 +614,53 @@ body, html, #app {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  padding: 1.5rem 3rem;  /* Aumentato padding */
+  padding: 2rem 3rem;
   background: #3c3c55;
   border-radius: 1rem;
   color: #ffdd57;
   font-weight: 600;
   display: flex;
-  gap: 1rem;  /* Aumentato gap */
+  gap: 1.5rem;
   align-items: center;
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-  min-width: 400px;  /* Aumentato min-width */
+  min-width: 500px;
   justify-content: center;
-  font-size: 1.2rem;  /* Aumentato font-size */
+  font-size: 1.2rem;
 }
 
 .training-alert img {
-  width: 24px;  /* Aumentato dimensione icona */
-  height: 24px;  /* Aumentato dimensione icona */
+  width: 24px;
+  height: 24px;
+}
+
+.training-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.training-title {
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+
+.training-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.9rem;
+  opacity: 0.8;
+}
+
+.training-time {
+  font-family: monospace;
+  color: #ffdd57;
 }
 
 .prediction-result {
   margin-top: 1.5rem;
   font-weight: 700;
-  font-size: 1.4rem; /* Aumentato da 1.2rem */
+  font-size: 1.4rem;
   text-align: center;
 }
 
@@ -541,8 +672,8 @@ body, html, #app {
   height: 100%;
   z-index: -1;
   object-fit: cover;
-  opacity: 0; /* Inizia con opacità 0 */
-  transition: opacity 1s ease-in-out; /* Transizione più lunga per l'immagine */
+  opacity: 0;
+  transition: opacity 1s ease-in-out;
 }
 
 .bg-illustration.active {
@@ -622,6 +753,10 @@ input[type='file'] {
   background: #ffffff;
   color: #333;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.white-theme .training-time {
+  color: #d4af37;
 }
 
 .white-theme .glass-card {
@@ -718,24 +853,22 @@ button:disabled {
     padding: 1.5rem;
   }
   
-  /* --- Adattamenti per la nuova top-bar --- */
   .top-bar {
     left: 1rem;
     right: 1rem;
-    flex-direction: row; /* Mantiene la riga anche su mobile */
+    flex-direction: row;
     gap: 0;
   }
   
   .top-button {
-    font-size: 1.2rem; /* Riduci un po' i pulsanti */
+    font-size: 1.2rem;
     padding: 0.5rem;
   }
   
   .branding {
-    font-size: 1.2rem; /* Riduci il logo */
+    font-size: 1.2rem;
   }
   
-  /* --- Adattamenti per la card in predict view --- */
   .predict-section .glass-card {
     top: 100px;
     bottom: 20px;
@@ -749,6 +882,11 @@ button:disabled {
   .action-buttons {
     flex-direction: column;
     gap: 0.75rem;
+  }
+
+  .training-alert {
+    min-width: 90%;
+    padding: 1.5rem 2rem;
   }
 }
 </style>
