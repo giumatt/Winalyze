@@ -23,22 +23,13 @@ async def main(mytimer: func.TimerRequest,
 
             for blob_name in ['uploaded_red.csv', 'uploaded_white.csv']:
                 try:
-                    wine_type = 'red' if 'red' in blob_name else 'white'
-
-                    # Controlla se il modello esiste già nel container di produzione ("models")
-                    prod_model_name = f"model_{wine_type}.pkl"
-                    prod_model_client = models_container.get_blob_client(prod_model_name)
-
-                    if await prod_model_client.exists():
-                        logging.info(f"Il modello '{prod_model_name}' esiste già in produzione. Salto il training per il vino {wine_type}.")
-                        continue  # Passa al prossimo file nel ciclo
-
                     # Carica dati raw
                     blob_client = container_client.get_blob_client(blob_name)
                     if not await blob_client.exists():
                         logging.info(f"File {blob_name} non trovato, skipping...")
                         continue
-                    
+
+                    wine_type = 'red' if 'red' in blob_name else 'white'
                     logging.info(f"Processing {wine_type} wine dataset")
 
                     # Carica e preprocessa i dati raw
