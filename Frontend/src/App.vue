@@ -185,38 +185,71 @@ async function uploadDataset() {
 }
 
 async function trainModel() {
-  // Polling su model-status per vedere quando il modello è pronto
   try {
     let attempts = 0
-    const maxAttempts = 15
-    const pollInterval = 2000
+    const maxAttempts = 30  // Aumentato il numero di tentativi
+    const pollInterval = 3000  // Aumentato l'intervallo a 3 secondi
     const endpoint = `https://winalyzefunc.azurewebsites.net/api/model_status?wine_type=${type.value}`
+
+    console.log(`Starting polling for ${type.value} wine model...`)
 
     return new Promise<void>((resolve, reject) => {
       const interval = setInterval(async () => {
         attempts++
+        console.log(`Polling attempt ${attempts}/${maxAttempts} for ${type.value} model`)
+        
         try {
           const statusRes = await fetch(endpoint, { method: 'GET' })
+          console.log(`📡 Response status: ${statusRes.status}`)
+          
+          if (!statusRes.ok) {
+            console.error(`HTTP error: ${statusRes.status} ${statusRes.statusText}`)
+            const errorText = await statusRes.text()
+            console.error(`Error response: ${errorText}`)
+            throw new Error(`HTTP ${statusRes.status}: ${statusRes.statusText}`)
+          }
+
           const status = await statusRes.json()
-          if (status.status === 'ready') {
+          console.log(`📋 Status response:`, status)
+          
+          // Gestisci entrambi i formati di risposta per retrocompatibilità
+          const modelStatus = status.status || status[type.value]
+          console.log(`Model status: ${modelStatus}`)
+          
+          if (modelStatus === 'ready') {
+            console.log(`✅ Model ${type.value} is ready!`)
             clearInterval(interval)
+            modelReady.value = true
             step.value = 'predict'
             resolve()
           } else if (attempts >= maxAttempts) {
+            console.error(`Timeout: training took too long (${attempts} attempts)`)
             clearInterval(interval)
             error.value = "Timeout: training took too much time"
             step.value = 'upload'
             reject(new Error("Timeout: training took too much time"))
+          } else {
+            console.log(`Model still training... (attempt ${attempts}/${maxAttempts})`)
           }
         } catch (err: any) {
+          console.error(`Error during polling attempt ${attempts}:`, err)
           clearInterval(interval)
           error.value = err.message || 'Error while checking model status'
           step.value = 'upload'
           reject(err)
         }
       }, pollInterval)
+      
+      // Timeout di sicurezza
+      setTimeout(() => {
+        clearInterval(interval)
+        error.value = "Training timeout exceeded"
+        step.value = 'upload'
+        reject(new Error("Training timeout exceeded"))
+      }, maxAttempts * pollInterval + 10000) // 10 secondi extra di buffer
     })
   } catch (e: any) {
+    console.error(`Error in trainModel:`, e)
     error.value = e.message || 'Error while training model'
     step.value = 'upload'
   }
