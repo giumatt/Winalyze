@@ -278,7 +278,7 @@ async function handlePredictSubmit() {
     const data = await response.json()
     if(!response.ok) throw new Error(data.detail || 'API error')
 
-    prediction.value = data.predicted_quality
+    prediction.value = data.prediction
   } catch (err: any) {
     error.value = err.message || 'Unexpected error'
   } finally {
