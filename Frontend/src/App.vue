@@ -265,15 +265,21 @@ async function handlePredictSubmit() {
     for (const feature of features) {
       const val = values.value[feature];
       if (val === undefined || typeof val !== 'number' || isNaN(val)) {
-        throw new Error(`Missing or invalid input for '${feature}'`);  // Lancia errore se una feature è mancante o invalida
+        throw new Error(`Missing or invalid input for '${feature}'`);
       }
       cleanedValues[feature] = val;
+    }
+
+    // FIX: Invia i dati nel formato corretto
+    const requestData = {
+      type: type.value,
+      ...cleanedValues  // Spread delle features direttamente nel corpo della richiesta
     }
 
     const response = await fetch('https://winalyzefunc.azurewebsites.net/api/infer_function', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ type: type.value, input: cleanedValues })
+      body: JSON.stringify(requestData)  // Ora i dati sono nel formato corretto
     })
     
     const data = await response.json();
