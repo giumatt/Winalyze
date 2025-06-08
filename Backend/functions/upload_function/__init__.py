@@ -3,6 +3,7 @@ import azure.functions as func
 from azure.storage.blob.aio import BlobServiceClient
 from azure.storage.blob import ContentSettings
 from azure.core.exceptions import ResourceExistsError
+from model_status import check_model_status
 import os
 import asyncio
 
@@ -57,13 +58,20 @@ async def main(req: func.HttpRequest) -> func.HttpResponse:
                     f"File successfully uploaded as: {blob_name}",
                     status_code=200
                 )
-                
+            
             except ResourceExistsError:
                 return func.HttpResponse(
                     f"A blob with name {blob_name} already exists",
                     status_code=409
                 )
             
+        try:
+            logging.info(f"▶️  Esecuzione controllo status per {wine_type}")
+            await check_model_status(wine_type)
+            logging.info(f"✅ Controllo status completato per {wine_type}")
+        except Exception as e:
+            logging.error(f"Errore durante l'esecuzione di check_model_status per {wine_type}: {str(e)}")
+    
     except Exception as e:
         logging.error(f"Upload failed: {e}")
         logging.exception("Full stack trace:")
