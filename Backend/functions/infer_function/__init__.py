@@ -1,16 +1,14 @@
 import azure.functions as func
 import logging
-from azure.storage.blob import BlobServiceClient 
 from shared.model_utils import load_model
 import pandas as pd
 import json
-import os
 
 def main(req: func.HttpRequest) -> func.HttpResponse:
-    logging.info('Richiesta di inferenza ricevuta')
+    logging.info('Inference request received')
     
     try:
-        # Ottieni e valida i dati di input
+        # Get and validate input data
         try:
             data = req.get_json()
             wine_type = data.pop("type", "").lower()
@@ -20,46 +18,46 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
                 status_code=400
             )
 
-        # Valida il tipo di vino
+        # Validate wine type
         if wine_type not in ['red', 'white']:
             return func.HttpResponse(
                 "Please specify 'type' as 'red' or 'white'",
                 status_code=400
             )
         
-        logging.info(f'Richiesta predizione per vino {wine_type}')
+        logging.info(f'Prediction request for {wine_type} wine')
         
-        # Carica il modello
+        # Load the model
         try:
             model, scaler = load_model(wine_type)
-            logging.info('Modello caricato con successo')
+            logging.info('Model loaded successfully')
         except Exception as e:
-            logging.error(f'Errore nel caricamento del modello: {str(e)}')
+            logging.error(f'Error loading model: {str(e)}')
             return func.HttpResponse(
                 f"Model loading error: {str(e)}",
                 status_code=500
             )
 
-        # Prepara i dati e fai la predizione
+        # Prepare data and make prediction
         try:
             df = pd.DataFrame([data])
             X_scaled = scaler.transform(df)
             prediction = model.predict(X_scaled)
-            logging.info('Predizione completata con successo')
+            logging.info('Prediction completed successfully')
             
             return func.HttpResponse(
                 json.dumps({"prediction": int(prediction[0])}),
                 mimetype="application/json"
             )
         except Exception as e:
-            logging.error(f'Errore durante la predizione: {str(e)}')
+            logging.error(f'Error during prediction: {str(e)}')
             return func.HttpResponse(
                 f"Prediction error: {str(e)}",
                 status_code=500
             )
             
     except Exception as e:
-        logging.error(f'Errore generale: {str(e)}')
+        logging.error(f'General error: {str(e)}')
         return func.HttpResponse(
             f"Internal server error: {str(e)}",
             status_code=500

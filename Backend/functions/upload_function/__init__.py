@@ -65,14 +65,15 @@ async def main(req: func.HttpRequest) -> func.HttpResponse:
                     status_code=409
                 )
             
+        # After upload, trigger an asynchronous check to see if a model already exists for the given wine type
         try:
-            logging.info(f"▶️  Esecuzione controllo status per {wine_type}")
+            logging.info(f"Triggering model status check for wine type: {wine_type}")
             await check_model_status(wine_type)
-            logging.info(f"✅ Controllo status completato per {wine_type}")
+            logging.info(f"Model status check completed for wine type: {wine_type}")
         except Exception as e:
-            logging.error(f"Errore durante l'esecuzione di check_model_status per {wine_type}: {str(e)}")
+            logging.error(f"Error during model status check for wine type {wine_type}: {str(e)}")
     
     except Exception as e:
-        logging.error(f"Upload failed: {e}")
-        logging.exception("Full stack trace:")
+        logging.error(f"Upload process failed: {e}")
+        logging.exception("Stack trace:")
         return func.HttpResponse(f"Error: {str(e)}", status_code=500)

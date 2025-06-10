@@ -1,8 +1,8 @@
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 import pandas as pd
-from io import BytesIO
 
+# Test upload_function to ensure correct file upload and response
 @pytest.mark.asyncio
 async def test_upload_function(monkeypatch):
     from functions.upload_function import __init__ as upload_func
@@ -20,6 +20,7 @@ async def test_upload_function(monkeypatch):
         async def read(self):
             return b"test,data"
 
+    # Mock dependencies used by the target function
     mock_blob_client = AsyncMock()
     mock_container = MagicMock()
     mock_container.get_blob_client.return_value = mock_blob_client
@@ -32,14 +33,17 @@ async def test_upload_function(monkeypatch):
 
     req = DummyReq()
     res = await upload_func.main(req)
-    print("Upload Function Response:", res.status_code)
+
+    print("Upload function returned status code:", res.status_code)
     assert res.status_code == 200 or res.status_code == 201
 
 
+# Test train_function to ensure training pipeline executes without errors
 @pytest.mark.asyncio
 async def test_train_function(monkeypatch):
     from functions.train_function import __init__ as train_func
 
+    # Mock dependencies used by the target function
     mock_blob_client = AsyncMock()
     mock_blob_client.exists.return_value = True
     mock_blob_client.download_blob.return_value.readall.return_value = pd.DataFrame({
@@ -74,13 +78,15 @@ async def test_train_function(monkeypatch):
 
     class DummyTimer: pass
     await train_func.main(DummyTimer(), cleanedOutput=None)
-    print("Train Function executed successfully")
+    print("Train function executed successfully")
 
 
+# Test validate_function to simulate model validation and promotion
 @pytest.mark.asyncio
 async def test_validate_function(monkeypatch):
     from functions.validate_function import __init__ as validate_func
 
+    # Mock dependencies used by the target function
     mock_blob_service = MagicMock()
     mock_container = MagicMock()
     mock_container.list_blobs = AsyncMock(return_value=[
@@ -97,9 +103,10 @@ async def test_validate_function(monkeypatch):
     class DummyStream:
         name = "model_white-testing.pkl"
     await validate_func.main(DummyStream())
-    print("Validate Function executed successfully")
+    print("Validate function executed successfully")
 
 
+# Test infer_function to verify prediction endpoint behavior
 @pytest.mark.asyncio
 async def test_infer_function(monkeypatch):
     from functions.infer_function import __init__ as infer_func
@@ -123,11 +130,12 @@ async def test_infer_function(monkeypatch):
     mock_req.get_body.return_value = req_body.encode()
     mock_req.params = {"wine_type": "red"}
 
+    # Mock dependencies used by the target function
     monkeypatch.setattr("functions.infer_function.__init__.load_model_and_scaler",
                         lambda wt: ("model", "scaler"))
     monkeypatch.setattr("functions.infer_function.__init__.preprocess_for_inference",
                         lambda df, sc: df)
 
     res = await infer_func.main(mock_req)
-    print("Infer Function Response:", res.status_code)
+    print("Infer function returned status code:", res.status_code)
     assert res.status_code == 200

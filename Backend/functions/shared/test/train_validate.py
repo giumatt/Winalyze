@@ -27,14 +27,14 @@ def get_metrics(y_true: pd.Series, y_pred: pd.Series) -> Dict[str, float]:
 
 async def validate_model(wine_type: str, blob_service: BlobServiceClient) -> bool:
     """
-    Valida il modello e lo sposta in production se passa i test
+    Validates the model and promotes it to production if it passes the evaluation.
     
     Args:
-        wine_type: Tipo di vino ('red' o 'white')
-        blob_service: Client per accedere al blob storage
+        wine_type: Type of wine ('red' or 'white')
+        blob_service: Client to access blob storage
     
     Returns:
-        bool: True se la validazione è riuscita, False altrimenti
+        bool: True if validation succeeded, False otherwise
     """
     try:
         logging.info(f"Starting validation for {wine_type} model")
@@ -45,12 +45,12 @@ async def validate_model(wine_type: str, blob_service: BlobServiceClient) -> boo
         scaler_blob = blob_service.get_blob_client(container="models", 
                                                  blob=f"scaler_{wine_type}.pkl")
 
-        # Download e carica il modello
+        # Download and load the model
         blob_model_stream = await model_blob.download_blob()
         model_data = await blob_model_stream.readall()
         model = joblib.load(io.BytesIO(model_data))
 
-        # Download e carica lo scaler
+        # Download and load the scaler
         blob_scaler_stream = await scaler_blob.download_blob()
         scaler_data = await blob_scaler_stream.readall()
         scaler = joblib.load(io.BytesIO(scaler_data))
@@ -66,7 +66,7 @@ async def validate_model(wine_type: str, blob_service: BlobServiceClient) -> boo
         X = df.drop("quality", axis=1)
         y = df["quality"]
 
-        # Preprocess test data
+        # Preprocess test data by scaling features
         X_scaled = scaler.fit_transform(X)
         
         # Make predictions and evaluate
@@ -77,12 +77,12 @@ async def validate_model(wine_type: str, blob_service: BlobServiceClient) -> boo
         for metric_name, value in metrics.items():
             logging.info(f"{wine_type} model {metric_name}: {value:.4f}")
 
-        # Check thresholds
+        # Define performance thresholds for validation
         thresholds = {
-            'accuracy': 0.59,
-            'precision': 0.29,
-            'recall': 0.59,
-            'f1': 0.44
+            'accuracy': 0.70,
+            'precision': 0.60,
+            'recall': 0.70,
+            'f1': 0.65
         }
         
         validation_passed = all(
@@ -93,17 +93,17 @@ async def validate_model(wine_type: str, blob_service: BlobServiceClient) -> boo
         if validation_passed:
             logging.info(f"Validation successful for {wine_type} model")
             
-            # Promuovi il modello in production
+            # Promote the model to production
             prod_blob = blob_service.get_blob_client(container="models", 
                                                    blob=f"model_{wine_type}.pkl")
             
-            # Upload diretto in production
+            # Direct upload to production
             await prod_blob.upload_blob(model_data, overwrite=True)
             
-            # Elimina la versione in testing
+            # Delete the testing version
             await model_blob.delete_blob()
             
-            logging.info(f"Modello {wine_type} promosso in production")
+            logging.info(f"Model {wine_type} promoted to production")
             return True
             
         logging.warning(f"Validation failed for {wine_type} model")
