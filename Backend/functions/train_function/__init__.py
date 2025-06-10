@@ -21,51 +21,52 @@ async def main(mytimer: func.TimerRequest,
             models_testing_container = blob_service.get_container_client("models-testing")
             models_container = blob_service.get_container_client("models")
 
+            # Iterate over the datasets of the two wine types to perform training and validation
             for blob_name in ['uploaded_red.csv', 'uploaded_white.csv']:
                 try:
-                    # Carica dati raw
+                    # Load and preprocess raw data
                     blob_client = container_client.get_blob_client(blob_name)
                     if not await blob_client.exists():
-                        logging.info(f"File {blob_name} non trovato, skipping...")
+                        logging.info(f"File {blob_name} not found, skipping...")
                         continue
 
                     wine_type = 'red' if 'red' in blob_name else 'white'
                     logging.info(f"Processing {wine_type} wine dataset")
 
-                    # Carica e preprocessa i dati raw
+                    # Load and preprocess raw data
                     blob_data = await blob_client.download_blob()
                     content = await blob_data.readall()
                     df_raw = await asyncio.to_thread(pd.read_csv, BytesIO(content), sep=";")
                     
-                    # Preprocessing e salvataggio in cleaned
+                    # Preprocessing and saving to 'cleaned' blob
                     df_cleaned, scaler_bytes = await asyncio.to_thread(
                         preprocess_data,
                         df_raw,
                         wine_type
                     )
                     
-                    # Salva direttamente nel container cleaned invece di usare il binding
+                    # Save directly to the 'cleaned' blob instead of using the binding
                     cleaned_blob = cleaned_container.get_blob_client(f"cleaned_{wine_type}.csv")
                     await cleaned_blob.upload_blob(
                         df_cleaned.to_csv(index=False).encode(),
                         overwrite=True
                     )
 
-                    # Salva lo scaler
+                    # Save the scaler which is needed to normalize data during inference
                     scaler_blob = models_container.get_blob_client(f"scaler_{wine_type}.pkl")
                     await scaler_blob.upload_blob(scaler_bytes, overwrite=True)
                     
-                    logging.info(f"Dati preprocessati e scaler salvati per {wine_type}")
+                    logging.info(f"Data preprocessed and scaler saved for {wine_type} wine")
 
-                    # Aggiungi una breve attesa per essere sicuri che il blob sia disponibile
+                    # Add a short wait to ensure the blob is available
                     await asyncio.sleep(1)
 
-                    # Verifica che il blob esista prima di procedere
+                    # Check that the blob exists before proceeding
                     if not await cleaned_blob.exists():
-                        logging.error(f"Errore: il file cleaned per {wine_type} non è stato salvato correttamente")
+                        logging.error(f"Error: the cleaned file for {wine_type} was not saved correctly")
                         continue
 
-                    # Carica i dati da cleaned per il training
+                    # Load data from 'cleaned' for training
                     cleaned_data = await cleaned_blob.download_blob()
                     cleaned_content = await cleaned_data.readall()
                     df_for_training = await asyncio.to_thread(
@@ -73,55 +74,57 @@ async def main(mytimer: func.TimerRequest,
                         BytesIO(cleaned_content)
                     )
                     
-                    # Training usando i dati da cleaned
+                    # Training using cleaned data
                     model_bytes = await asyncio.to_thread(
                         train_model,
                         df_for_training,
                         wine_type
                     )
 
-                    # Salva il modello in testing
+                    # Save the model in testing
                     model_blob = models_testing_container.get_blob_client(f"model_{wine_type}-testing.pkl")
                     await model_blob.upload_blob(model_bytes, overwrite=True)
                     
-                    logging.info(f"Training completato per vino {wine_type}")
+                    logging.info(f"Training completed for {wine_type} wine")
 
+                    # Validate the model and promote it if it meets criteria
                     try:
-                        # Verifica se ci sono modelli da validare in models-testing
+                        # Check if there are models to validate in models-testing
                         testing_blobs = [blob async for blob in models_testing_container.list_blobs()]
                         if not testing_blobs:
-                            logging.info("Nessun modello da validare in models-testing")
+                            logging.info("No model to validate in models-testing")
                             continue
 
-                        # Verifica se esiste il modello specifico da validare
+                        # Check if the specific model to validate exists
                         model_test_name = f"model_{wine_type}-testing.pkl"
                         if not any(blob.name == model_test_name for blob in testing_blobs):
-                            logging.info(f"Modello {model_test_name} non trovato in models-testing")
+                            logging.info(f"Model {model_test_name} not found in models-testing")
                             continue
 
-                        # Valida il modello
+                        # Validate the model
                         validation_result = await validate_model(wine_type, blob_service)
                         if validation_result:
-                            logging.info(f"Validazione superata per il modello {wine_type}")
+                            logging.info(f"Validation passed for {wine_type} red")
                         else:
-                            logging.warning(f"Validazione fallita per il modello {wine_type}")
+                            logging.warning(f"Validation failed for {wine_type} wine model")
                     except Exception as e:
-                        logging.error(f"Errore durante la validazione del modello {wine_type}: {str(e)}")
+                        logging.error(f"Error while validating {wine_type} wine model: {str(e)}")
                     
                 except Exception as e:
                     logging.error(f"Error processing {blob_name}: {str(e)}")
                     continue
 
+            # Merge to alpha branch is performed only if both models are in production
             try:
                 prod_container = blob_service.get_container_client("models")
                 existing_models = [b.name async for b in prod_container.list_blobs()]
                 if "model_red.pkl" in existing_models and "model_white.pkl" in existing_models:
-                    logging.info("🚀 Entrambi i modelli sono in produzione — trigger merge to alpha")
+                    logging.info("Both models in prodoction — trigger merge to alpha")
                     trigger_merge_to_alpha()
                 else:
-                    logging.info("⏳ Attesa: entrambi i modelli non sono ancora in produzione")
+                    logging.info("Waiting: not both models are in production")
             except Exception as e:
-                logging.error(f"Errore nel controllo dei modelli in produzione: {str(e)}")
+                logging.error(f"Error while checking models in production: {str(e)}")
     except Exception as e:
         logging.error(f"General error in train function: {str(e)}")
         raise
