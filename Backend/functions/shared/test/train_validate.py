@@ -79,10 +79,10 @@ async def validate_model(wine_type: str, blob_service: BlobServiceClient) -> boo
 
         # Define performance thresholds for validation
         thresholds = {
-            'accuracy': 0.59,
-            'precision': 0.29,
-            'recall': 0.59,
-            'f1': 0.44
+            'accuracy': 0.70,
+            'precision': 0.60,
+            'recall': 0.70,
+            'f1': 0.65
         }
         
         validation_passed = all(
