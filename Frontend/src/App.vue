@@ -102,12 +102,12 @@ const modelReady = ref(false)
 
 const type = ref<'red' | 'white'>('red')
 
-// Nuove variabili per il tracking del training
+// Variables for tracking training state
 const trainingAttempts = ref(0)
 const maxTrainingAttempts = ref(120)
 const trainingStartTime = ref<number | null>(null)
 
-// Funzioni per la persistenza dello stato
+// Functions for persisting training state in localStorage
 function saveTrainingState() {
   const state = {
     isTraining: step.value === 'training',
@@ -123,7 +123,7 @@ function loadTrainingState() {
   
   try {
     const state = JSON.parse(saved)
-    // Se è passata più di 1 ora, considera il training fallito
+    // If more than 1 hour has passed, consider training failed
     if (Date.now() - state.startTime > 60 * 60 * 1000) {
       localStorage.removeItem('winalyze_training_state')
       return null
@@ -139,7 +139,7 @@ function clearTrainingState() {
   localStorage.removeItem('winalyze_training_state')
 }
 
-// Funzione per formattare il tempo trascorso
+// Helper to format elapsed training time
 function formatTrainingTime(startTime: number | null): string {
   if (!startTime) return '0s'
   const elapsed = Math.floor((Date.now() - startTime) / 1000)
@@ -149,12 +149,12 @@ function formatTrainingTime(startTime: number | null): string {
 }
 
 onMounted(async () => {
-  // Controlla se c'era un training in corso
+  // Check if a training session was in progress
   const trainingState = loadTrainingState()
   if (trainingState && trainingState.isTraining) {
     type.value = trainingState.wineType
     step.value = 'training'
-    // Riprendi il polling
+    // Resume polling for training status
     try {
       await trainModel()
       clearTrainingState()
@@ -162,7 +162,7 @@ onMounted(async () => {
       clearTrainingState()
     }
   } else {
-    // Controllo normale dello stato del modello
+    // Normal check of model status
     try {
       const res = await fetch(`https://winalyzefunc.azurewebsites.net/api/model_status?wine_type=${type.value}`)
       if(res.ok) {
@@ -182,6 +182,7 @@ const prediction = ref<number | null>(null)
 
 const fileInput = ref<HTMLInputElement | null>(null)
 
+// Reset application state and return to home/upload step
 function goHome() {
   error.value = null
   prediction.value = null
@@ -189,8 +190,7 @@ function goHome() {
   file.value = null
   step.value = 'upload'
   loading.value = false
-  // Pulisci anche lo stato del training quando vai in home
-  clearTrainingState()
+  clearTrainingState() // Also clear training state when returning home
   trainingStartTime.value = null
   trainingAttempts.value = 0
 }
@@ -224,6 +224,7 @@ function handleFileChange(e: Event) {
   }
 }
 
+// Upload the dataset file and start training
 async function uploadDataset() {
   if (!file.value) {
     error.value = "Select a file before uploading"
@@ -241,14 +242,14 @@ async function uploadDataset() {
     })
     if (!res.ok) throw new Error('Error while uploading file')
 
-    // Salva lo stato prima di iniziare il training
+    // Save state before starting training
     step.value = 'training'
     saveTrainingState()
     
     await trainModel()
-    clearTrainingState() // Pulisci lo stato quando finisce con successo
+    clearTrainingState() // Clear state if training finished successfully
   } catch (e: any) {
-    clearTrainingState() // Pulisci lo stato in caso di errore
+    clearTrainingState() // Clear state in case of error
     error.value = e.message || 'Error while uploading file'
     step.value = 'upload'
   } finally {
@@ -256,14 +257,15 @@ async function uploadDataset() {
   }
 }
 
+// Polls the backend to check if the model training is complete
 async function trainModel() {
   trainingStartTime.value = Date.now()
   trainingAttempts.value = 0
   
   try {
     let attempts = 0
-    const maxAttempts = 120  // 10 minuti totali
-    const pollInterval = 5000  // 5 secondi
+    const maxAttempts = 120  // 10 minutes total
+    const pollInterval = 5000  // 5 seconds
     const endpoint = `https://winalyzefunc.azurewebsites.net/api/model_status?wine_type=${type.value}`
 
     console.log(`Starting polling for ${type.value} wine model...`)
@@ -271,45 +273,45 @@ async function trainModel() {
     return new Promise<void>((resolve, reject) => {
       const interval = setInterval(async () => {
         attempts++
-        trainingAttempts.value = attempts // Aggiorna il contatore reattivo
+        trainingAttempts.value = attempts // Update reactive counter
         
         console.log(`Polling attempt ${attempts}/${maxAttempts} for ${type.value} model`)
         
         try {
           const statusRes = await fetch(endpoint, { 
             method: 'GET',
-            // Timeout per singole richieste per evitare richieste bloccate
-            signal: AbortSignal.timeout(10000) // 10 secondi timeout per richiesta
+            // Timeout for each request to avoid stalled requests
+            signal: AbortSignal.timeout(10000) // 10 seconds timeout per request
           })
           
-          console.log(`📡 Response status: ${statusRes.status}`)
+          console.log(`Polling response status:`, statusRes.status)
           
           if (!statusRes.ok) {
             console.warn(`HTTP error: ${statusRes.status} ${statusRes.statusText}`)
-            // Non interrompere per errori HTTP temporanei, continua il polling
+            // Do not stop for temporary HTTP errors, continue polling
             if (attempts >= maxAttempts) {
               clearInterval(interval)
-              error.value = `Training timeout: max attempts reached (${maxAttempts})`
+              error.value = `Training timeout: maximum attempts reached (${maxAttempts})`
               step.value = 'upload'
               trainingStartTime.value = null
-              reject(new Error(`Training timeout: max attempts reached`))
+              reject(new Error(`Training timeout: maximum attempts reached`))
             }
-            return // Continua il polling
+            return // Continue polling
           }
 
           const status = await statusRes.json()
-          console.log(`📋 Status response:`, status)
+          console.log(`Status response:`, status)
           
           const modelStatus = status.status || status[type.value]
           console.log(`Model status: ${modelStatus}`)
           
           if (modelStatus === 'ready') {
-            console.log(`✅ Model ${type.value} is ready!`)
+            console.log(`Model ${type.value} is ready.`)
             clearInterval(interval)
             modelReady.value = true
             step.value = 'predict'
-            trainingStartTime.value = null // Reset del timer
-            resolve() // Il polling si ferma qui definitivamente
+            trainingStartTime.value = null // Reset timer
+            resolve() // Stop polling
           } else if (attempts >= maxAttempts) {
             console.error(`Timeout: training took too long (${attempts} attempts)`)
             clearInterval(interval)
@@ -323,7 +325,7 @@ async function trainModel() {
         } catch (err: any) {
           console.warn(`Error during polling attempt ${attempts}:`, err.message)
           
-          // Se è un errore di rete/timeout, continua il polling invece di fermarsi
+          // If it's a network/timeout error, continue polling instead of stopping
           if (err.name === 'AbortError' || err.name === 'TimeoutError' || err.message.includes('fetch')) {
             console.log('Network error, continuing polling...')
             if (attempts >= maxAttempts) {
@@ -333,10 +335,10 @@ async function trainModel() {
               trainingStartTime.value = null
               reject(new Error('Training timeout: network issues'))
             }
-            return // Continua il polling
+            return // Continue polling
           }
           
-          // Solo per errori critici, ferma il polling
+          // Stop polling only for critical errors
           console.error(`Critical error during polling:`, err)
           clearInterval(interval)
           error.value = err.message || 'Error while checking model status'
@@ -355,6 +357,7 @@ async function trainModel() {
   }
 }
 
+// Submits feature values for prediction and handles the response
 async function handlePredictSubmit() {
   error.value = null
   prediction.value = null
@@ -362,7 +365,7 @@ async function handlePredictSubmit() {
   try {
     const cleanedValues: Record<string, number> = {}
 
-    // Verifica che tutte le features richieste siano presenti
+    // Make sure all required features are present
     for (const feature of features) {
       const val = values.value[feature];
       if (val === undefined || typeof val !== 'number' || isNaN(val)) {
@@ -371,16 +374,15 @@ async function handlePredictSubmit() {
       cleanedValues[feature] = val;
     }
 
-    // FIX: Invia i dati nel formato corretto
     const requestData = {
       type: type.value,
-      ...cleanedValues  // Spread delle features direttamente nel corpo della richiesta
+      ...cleanedValues  // Spread features directly into the request body
     }
 
     const response = await fetch('https://winalyzefunc.azurewebsites.net/api/infer_function', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify(requestData)  // Ora i dati sono nel formato corretto
+      body: JSON.stringify(requestData)
     })
     
     const data = await response.json();
