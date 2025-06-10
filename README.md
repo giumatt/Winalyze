@@ -54,7 +54,7 @@ Possible future directions include full deployment on Azure Container Apps or Do
 
 ## License
 
-MIT License © 2025 — [Your Name or Organization]
+GPL License © 2025 — [Giuseppe Mattia Greco]
 
 ---
 
