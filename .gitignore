@@ -31,3 +31,5 @@ Backend/functions/shared/preprocessing_utils.py
 =======
 .github/workflows/train-and-validate.yml
 >>>>>>> e10ce7d742a238032ade0c650500f5e00d92326b
+backend/shared
+backend/test
