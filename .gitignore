@@ -26,3 +26,6 @@ backend/functions/.funcignore
 .vscode/
 backend/functions/shared/preprocessing_utils.py
 backend/functions/.env
+Backend/shared
+Backend/src
+Backend/test
